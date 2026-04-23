@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Crawl-delay: 2
+
+Sitemap: https://sahakarhelp.com/sitemap.xml
