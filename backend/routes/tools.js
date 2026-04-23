@@ -31,15 +31,14 @@ router.get('/:slug/config', async (req, res) => {
   } catch (error) {
     // Track error in analytics (if trackError function exists)
     if (typeof trackError === 'function') {
-      try {
-        await trackError(req.user?.id || null, error.message, {
-          toolSlug: req.params.slug,
-          toolName: 'unknown',
-          statusCode: 500
-        });
-      } catch (trackErr) {
+      // Remove any await keyword - trackError returns a promise, handle with .catch()
+      trackError(req.user?.id || null, error.message, {
+        toolSlug: req.params.slug,
+        toolName: 'unknown',
+        statusCode: 500
+      }).catch(trackErr => {
         console.error('Failed to track error:', trackErr.message);
-      }
+      });
     }
     res.status(500).json({ error: error.message });
   }

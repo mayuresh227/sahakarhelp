@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const xss = require('xss-clean');
 const mongoSanitize = require('express-mongo-sanitize');
+const compression = require('compression');
 
 const toolsRouter = require('./routes/tools');
 const invoiceRouter = require('./routes/invoiceRoutes');
@@ -30,21 +31,40 @@ console.log("NODE_ENV:", process.env.NODE_ENV || 'development');
 
 // ✅ Security Middleware
 app.use(helmet());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
 
-// Rate limiting: 100 requests per 15 minutes
+// CORS configuration
+const corsOptions = {
+  origin: (origin, callback) => {
+    const allowedOrigins = process.env.FRONTEND_URL
+      ? process.env.FRONTEND_URL.split(',')
+      : ['http://localhost:3000'];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+
+// Rate limiting configurable via environment
+const rateLimitWindowMs = parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000; // 15 minutes
+const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100;
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  windowMs: rateLimitWindowMs,
+  max: rateLimitMax,
   message: 'Too many requests from this IP, please try later.',
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use(limiter);
 
+// Compression middleware (improve performance)
+app.use(compression());
+
+// Body parsing with limit
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(cookieParser());
 app.use(xss());
@@ -68,8 +88,13 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ✅ MongoDB Connection (FIXED)
-mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI)
+// ✅ MongoDB Connection with retry and better options
+const mongoOptions = {
+  maxPoolSize: 10,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+};
+mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI, mongoOptions)
     .then(() => {
         console.log("✅ MongoDB Connected");
         console.log("Database connected successfully");
@@ -77,6 +102,7 @@ mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI)
     .catch((err) => {
         console.error("❌ MongoDB Error:", err.message);
         console.error("Failed to connect to MongoDB. Check MONGODB_URI environment variable.");
+        // Note: Server will still start but database operations will fail
     });
 
 // Global error handlers to prevent crashes
@@ -166,7 +192,27 @@ app.use(async (err, req, res, next) => {
     });
 });
 
-// ✅ Start server
-app.listen(PORT, () => {
+// ✅ Start server with graceful shutdown
+const server = app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
+
+// Graceful shutdown
+const gracefulShutdown = (signal) => {
+    console.log(`\n${signal} received, shutting down gracefully...`);
+    server.close(() => {
+        console.log('HTTP server closed.');
+        mongoose.connection.close(false, () => {
+            console.log('MongoDB connection closed.');
+            process.exit(0);
+        });
+    });
+    // Force close after 10 seconds
+    setTimeout(() => {
+        console.error('Forcing shutdown after timeout');
+        process.exit(1);
+    }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
