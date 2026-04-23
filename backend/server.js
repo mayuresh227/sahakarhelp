@@ -80,7 +80,7 @@ app.get("/", (req, res) => {
 });
 
 // Health endpoint
-app.get("/health", (req, res) => {
+app.get("/api/health", (req, res) => {
   res.status(200).json({
     status: "ok",
     uptime: process.uptime(),
