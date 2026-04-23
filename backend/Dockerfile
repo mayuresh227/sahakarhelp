@@ -1,4 +1,5 @@
 # Use Node.js 18 slim for smaller image with native compilation support
+# Cache bust: ensure fresh build after fixing await syntax error
 FROM node:18-slim AS builder
 
 # Install dependencies for native modules (sharp)

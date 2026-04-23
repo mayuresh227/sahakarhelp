@@ -31,7 +31,6 @@ router.get('/:slug/config', async (req, res) => {
   } catch (error) {
     // Track error in analytics (if trackError function exists)
     if (typeof trackError === 'function') {
-      // Remove any await keyword - trackError returns a promise, handle with .catch()
       trackError(req.user?.id || null, error.message, {
         toolSlug: req.params.slug,
         toolName: 'unknown',
