@@ -42,9 +42,16 @@
 
 2. **Environment Variables**
    - Add `MONGO_URI` with your MongoDB connection string
-   - Add `PORT` (optional, defaults to 8080)
+   - Do not add `PORT` unless the public domain target port is set to the same value. Railway injects `PORT` automatically.
+   - Set `NODE_ENV=production`
 
-3. **Deploy**
+3. **Service Settings**
+   - Root Directory: `/backend`
+   - Config File Path: `/backend/railway.json`
+   - Public Networking: generate the domain on the backend service, not on a stale root service
+   - Target Port: automatic, or exactly the same value as `PORT`
+
+4. **Deploy**
    - Railway will automatically deploy
    - Get the generated URL and update frontend's `NEXT_PUBLIC_API_URL`
 

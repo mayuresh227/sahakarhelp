@@ -38,8 +38,7 @@ WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app ./
 
-# Expose port
-EXPOSE 3001
+# Railway injects PORT at runtime; the app listens on 0.0.0.0:$PORT.
 
 # Start command
 CMD ["npm", "start"]

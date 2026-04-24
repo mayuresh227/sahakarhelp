@@ -16,13 +16,13 @@ This guide ensures successful deployment of the backend on Railway.
    - Select "Deploy from GitHub repo"
    - Choose your repository
 
-2. **Configure Service**
-   - Railway will auto-detect the backend directory
-   - If not, manually set:
-     - **Root Directory**: `backend`
-     - **Build Command**: `npm install`
-     - **Start Command**: `npm start`
-     - **Node Version**: 18.x (auto-detected from package.json)
+2. **Configure the backend service**
+   - Use one Railway service for the API.
+   - Set **Root Directory** to `/backend`.
+   - Set **Config File Path** to `/backend/railway.json`.
+   - Set **Build Command** to `npm ci`.
+   - Set **Start Command** to `npm start`.
+   - Leave `PORT` unset unless you intentionally configure a matching public domain target port.
 
 ## Step 2: Environment Variables
 
@@ -30,7 +30,7 @@ Add these environment variables in Railway Dashboard → Project → Variables:
 
 | Variable | Value | Required |
 |----------|-------|----------|
-| `PORT` | `3001` | No (Railway auto-assigns) |
+| `PORT` | Leave unset | No. Railway injects this automatically |
 | `MONGODB_URI` | Your MongoDB connection string | **Yes** |
 | `NODE_ENV` | `production` | Recommended |
 | `FRONTEND_URL` | Your frontend URL (e.g., `https://sahakarhelp.vercel.app`) | Recommended |
@@ -43,14 +43,14 @@ Add these environment variables in Railway Dashboard → Project → Variables:
 
 ## Step 3: Deployment Configuration
 
-### Railway Configuration File (Optional)
-Create `railway.json` in backend directory for explicit configuration:
+### Railway Configuration File
+The backend service uses `backend/railway.json`:
 
 ```json
 {
   "build": {
-    "builder": "nixpacks",
-    "buildCommand": "npm install"
+    "builder": "RAILPACK",
+    "buildCommand": "npm ci"
   },
   "deploy": {
     "startCommand": "npm start",
@@ -61,9 +61,11 @@ Create `railway.json` in backend directory for explicit configuration:
 ```
 
 ### Important Settings
-- **Health Check**: Railway will automatically check `/` or `/api/test` endpoint
-- **Port Binding**: Ensure server listens on `process.env.PORT`
-- **Root Directory**: Must be `backend` (not project root)
+- **Public Networking**: In the backend service settings, generate a Railway domain under **Networking → Public Networking**.
+- **Target Port**: Leave the domain target port automatic, or set it to the same value as the service `PORT`.
+- **Port Binding**: The server must listen on `0.0.0.0` and `process.env.PORT`; `server.js` already does this.
+- **Root Directory**: Must be `/backend`, not the project root.
+- **Config File Path**: Must be `/backend/railway.json`; Railway config files do not automatically follow the root directory setting.
 
 ## Step 4: Deploy
 
@@ -100,17 +102,20 @@ Create `railway.json` in backend directory for explicit configuration:
    - Check network access (allow all IPs in MongoDB Atlas)
    - Test connection locally with same URI
 
-3. **Port Binding Error**
-   - Server must use `process.env.PORT` (not hardcoded)
-   - Our server.js already handles this
+3. **Port Binding / Target Port Error**
+   - Server must use `process.env.PORT` and bind to `0.0.0.0`.
+   - Do not hard-code `PORT=3001` or `PORT=8080` in Railway variables unless the public domain target port is set to the exact same value.
+   - If `/api/test` returns Railway's 502 JSON and the backend logs do not show `TEST HIT`, the request is not reaching this service.
 
 4. **Root Directory Wrong**
    - Railway might deploy from `/` instead of `/backend`
-   - Manually set root directory to `backend` in service settings
+   - Manually set root directory to `/backend` in service settings
+   - Set config file path to `/backend/railway.json`
 
 5. **Duplicate Services**
-   - Delete any extra services in Railway dashboard
-   - Keep only one backend service
+   - Delete or detach domains from stale/root services
+   - Keep only one public domain on the backend API service
+   - Ensure the frontend `NEXT_PUBLIC_API_URL` points to that backend domain
 
 ### Debug Logs
 Our server.js includes debug logs:
