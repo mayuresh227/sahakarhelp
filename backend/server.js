@@ -14,7 +14,11 @@ const invoiceRouter = require('./routes/invoiceRoutes');
 const paymentRouter = require('./routes/payment');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT;
+if (!PORT) {
+  console.error('ERROR: PORT environment variable is not set');
+  process.exit(1);
+}
 
 console.log("🚀 Starting server with all routes...");
 
@@ -106,8 +110,8 @@ app.use((err, req, res, next) => {
 // ====================
 // Start server
 // ====================
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on port ${PORT} (bound to 0.0.0.0)`);
 });
 
 // Graceful shutdown
