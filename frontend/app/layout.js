@@ -1,7 +1,6 @@
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Navbar from '@/components/Navbar'
-import Providers from '@/components/Providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -47,18 +46,16 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Providers>
-          <Navbar />
-          <main className="min-h-screen">{children}</main>
-          <footer className="bg-gray-800 text-white p-4 mt-8">
-            <div className="container mx-auto text-center">
-              <p>© 2024 SahakarHelp. All rights reserved.</p>
-              <p className="text-sm text-gray-400 mt-2">
-                Frontend deployed on Vercel • Backend deployed on Railway
-              </p>
-            </div>
-          </footer>
-        </Providers>
+        <Navbar />
+        <main className="min-h-screen">{children}</main>
+        <footer className="bg-gray-800 text-white p-4 mt-8">
+          <div className="container mx-auto text-center">
+            <p>© 2024 SahakarHelp. All rights reserved.</p>
+            <p className="text-sm text-gray-400 mt-2">
+              Frontend deployed on Vercel • Backend deployed on Railway
+            </p>
+          </div>
+        </footer>
       </body>
     </html>
   )

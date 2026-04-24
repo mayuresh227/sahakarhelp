@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { loadRazorpay } from '@/utils/razorpay';
 import Navbar from '@/components/Navbar';
 
@@ -61,7 +60,8 @@ const PLANS = [
 ];
 
 export default function PricingPage() {
-    const { data: session, status } = useSession();
+    const session = null;
+    const status = 'unauthenticated';
     const [loading, setLoading] = useState(false);
     const [currentPlan, setCurrentPlan] = useState('free');
 
