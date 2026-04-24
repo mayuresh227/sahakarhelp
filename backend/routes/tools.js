@@ -116,7 +116,11 @@ router.get('/', async (req, res) => {
 // Get tool configuration
 router.get('/:slug/config', async (req, res) => {
   try {
-    const tool = ToolRegistry.getTool(req.params.slug);
+    let tool = ToolRegistry.getTool(req.params.slug);
+    if (!tool) {
+      // fallback to database
+      tool = await findToolMetaSafe(req.params.slug);
+    }
     if (!tool) return res.status(404).json({ error: 'Tool not found' });
     
     res.json({

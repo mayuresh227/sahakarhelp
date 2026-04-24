@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import axios from 'axios';
+import { API_BASE_URL } from '../services/toolService';
 
 const ResumeGeneratorUI = ({ config, onSubmit }) => {
     const { register, control, handleSubmit, formState: { errors } } = useForm();
@@ -25,7 +26,7 @@ const ResumeGeneratorUI = ({ config, onSubmit }) => {
             setLoading(true);
             setError(null);
 
-            const response = await axios.post(`/api/tools/${config.slug}`, data);
+            const response = await axios.post(`${API_BASE_URL}/${config.slug}`, data);
             setResult(response.data);
         } catch (err) {
             setError(err.response?.data?.error || 'Resume generation failed');

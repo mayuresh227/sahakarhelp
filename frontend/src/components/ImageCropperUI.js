@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../services/toolService';
 
 const ImageCropperUI = ({ config, onSubmit, result }) => {
   const [file, setFile] = useState(null);
@@ -87,7 +88,7 @@ const ImageCropperUI = ({ config, onSubmit, result }) => {
       if (x) formData.append('x', x);
       if (y) formData.append('y', y);
       
-      const response = await axios.post(`/api/tools/${config.slug}`, formData, {
+      const response = await axios.post(`${API_BASE_URL}/${config.slug}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

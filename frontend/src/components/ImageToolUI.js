@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../services/toolService';
 
 const ImageToolUI = ({ config, onSubmit }) => {
   const [file, setFile] = useState(null);
@@ -34,7 +35,7 @@ const ImageToolUI = ({ config, onSubmit }) => {
         }
       });
       
-      const response = await axios.post(`/api/tools/${config.slug}`, formData, {
+      const response = await axios.post(`${API_BASE_URL}/${config.slug}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function AnalyticsDashboard({ isAdmin = false }) {
   const [summary, setSummary] = useState(null);
@@ -23,7 +24,7 @@ export default function AnalyticsDashboard({ isAdmin = false }) {
       const token = localStorage.getItem('token') || '';
       
       // Fetch summary
-      const summaryRes = await fetch(`/api/analytics/summary?period=${period}`, {
+      const summaryRes = await fetch(`${API_BASE_URL ? API_BASE_URL + '/' : ''}api/analytics/summary?period=${period}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -35,7 +36,7 @@ export default function AnalyticsDashboard({ isAdmin = false }) {
       setMostUsedTools(summaryData.mostUsedTools || []);
 
       // Fetch usage data for charts
-      const usageRes = await fetch(`/api/analytics/usage?period=${period}`, {
+      const usageRes = await fetch(`${API_BASE_URL ? API_BASE_URL + '/' : ''}api/analytics/usage?period=${period}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

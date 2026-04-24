@@ -3,7 +3,7 @@
  * Base URL: https://sahakarhelp-production.up.railway.app
  */
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sahakarhelp-production.up.railway.app';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sahakarhelp-production-5bae.up.railway.app';
 
 /**
  * Helper to construct full API URL

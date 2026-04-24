@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/api';
 
 const GSTInvoiceUI = ({ config, onSubmit, result }) => {
     const { register, control, handleSubmit, watch, formState: { errors } } = useForm({
@@ -160,7 +161,7 @@ const GSTInvoiceUI = ({ config, onSubmit, result }) => {
     const saveToHistory = async () => {
         if (!result?.invoiceData) return;
         try {
-            await axios.post('/api/invoice', result.invoiceData);
+            await axios.post(`${API_BASE_URL}/api/invoice`, result.invoiceData);
             alert('Invoice saved to history!');
         } catch (error) {
             console.error('Failed to save invoice:', error);
