@@ -3,13 +3,22 @@
  * Base URL: https://sahakarhelp-production.up.railway.app
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sahakarhelp-production.up.railway.app';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://sahakarhelp-production.up.railway.app';
+
+/**
+ * Helper to construct full API URL
+ */
+export function getApiUrl(endpoint) {
+  // Ensure endpoint starts with a slash
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${API_BASE_URL}${normalizedEndpoint}`;
+}
 
 /**
  * Generic fetch wrapper with error handling
  */
 async function fetchAPI(endpoint, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = getApiUrl(endpoint);
   
   const defaultHeaders = {
     'Content-Type': 'application/json',
@@ -42,6 +51,10 @@ async function fetchAPI(endpoint, options = {}) {
     return data;
   } catch (error) {
     console.error(`API call failed for ${endpoint}:`, error);
+    // Provide a user-friendly error message
+    if (error.message.includes('Failed to fetch')) {
+      throw new Error('Unable to connect to the server. Please check your internet connection and ensure the backend is running.');
+    }
     throw error;
   }
 }

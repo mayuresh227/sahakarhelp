@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import Link from 'next/link';
+import { getApiUrl } from '@/utils/api';
 
 export default function DashboardPage() {
   // Auth temporarily disabled - use dummy session
@@ -24,7 +25,7 @@ export default function DashboardPage() {
   const fetchPublicData = async () => {
     try {
       // Since auth is disabled, use guest endpoint or show placeholder
-      const res = await fetch('/api/user/public-profile');
+      const res = await fetch(getApiUrl('/api/user/public-profile'));
       if (res.ok) {
         const data = await res.json();
         setUserData(data);
@@ -51,7 +52,7 @@ export default function DashboardPage() {
 
   const fetchToolUsage = async () => {
     try {
-      const res = await fetch('/api/user/tool-usage');
+      const res = await fetch(getApiUrl('/api/user/tool-usage'));
       if (res.ok) {
         const data = await res.json();
         setToolUsage(data);
@@ -63,7 +64,7 @@ export default function DashboardPage() {
 
   const fetchInvoices = async () => {
     try {
-      const res = await fetch('/api/invoice');
+      const res = await fetch(getApiUrl('/api/invoice'));
       if (res.ok) {
         const data = await res.json();
         setInvoices(data);
