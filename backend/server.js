@@ -15,6 +15,26 @@ app.use(cors());
 app.use(compression());
 app.use(bodyParser.json({ limit: '10mb' }));
 
+// Request timeout middleware (10 seconds)
+app.use((req, res, next) => {
+  req.setTimeout(10000, () => {
+    console.warn(`Request timeout: ${req.method} ${req.url}`);
+  });
+  res.setTimeout(10000, () => {
+    console.warn(`Response timeout: ${req.method} ${req.url}`);
+  });
+  next();
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
 // Root route
 app.get('/', (req, res) => {
   res.send('Backend is running 🚀');
@@ -28,6 +48,15 @@ app.get('/api/health', (req, res) => {
 // Test endpoint
 app.get('/api/test', (req, res) => {
   res.json({ message: 'API working 🚀' });
+});
+
+// Global 404 handler for unmatched routes
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Route not found',
+    path: req.path,
+    method: req.method
+  });
 });
 
 // Start server
