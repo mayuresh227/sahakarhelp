@@ -501,6 +501,8 @@ const loadTools = async () => {
 };
 
 // Initialize tool registry
-loadTools();
+loadTools().catch(err => {
+  console.error('Failed to load tools:', err);
+});
 
 module.exports = ToolRegistry;

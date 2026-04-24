@@ -202,10 +202,15 @@ const gracefulShutdown = (signal) => {
     console.log(`\n${signal} received, shutting down gracefully...`);
     server.close(() => {
         console.log('HTTP server closed.');
-        mongoose.connection.close(false, () => {
-            console.log('MongoDB connection closed.');
-            process.exit(0);
-        });
+        mongoose.connection.close(false)
+            .then(() => {
+                console.log('MongoDB connection closed.');
+                process.exit(0);
+            })
+            .catch(err => {
+                console.error('Error closing MongoDB connection:', err);
+                process.exit(1);
+            });
     });
     // Force close after 10 seconds
     setTimeout(() => {
