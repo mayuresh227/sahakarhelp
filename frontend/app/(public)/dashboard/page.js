@@ -1,46 +1,51 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Link from 'next/link';
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
+  // Auth temporarily disabled - use dummy session
+  const session = null;
+  const status = 'unauthenticated';
   const [userData, setUserData] = useState(null);
   const [toolUsage, setToolUsage] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin');
-    }
-  }, [status, router]);
+    // No redirect during temporary disable
+    // Fetch public data instead
+    fetchPublicData();
+    fetchToolUsage();
+    fetchInvoices();
+  }, []);
 
-  useEffect(() => {
-    if (session) {
-      fetchUserData();
-      fetchToolUsage();
-      fetchInvoices();
-    }
-  }, [session]);
-
-  const fetchUserData = async () => {
+  const fetchPublicData = async () => {
     try {
-      const res = await fetch('/api/user/profile', {
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`,
-        },
-      });
+      // Since auth is disabled, use guest endpoint or show placeholder
+      const res = await fetch('/api/user/public-profile');
       if (res.ok) {
         const data = await res.json();
         setUserData(data);
+      } else {
+        // Fallback to placeholder data
+        setUserData({
+          name: 'Guest User',
+          email: 'guest@example.com',
+          plan: 'free',
+          role: 'user'
+        });
       }
     } catch (error) {
-      console.error('Failed to fetch user data', error);
+      console.error('Failed to fetch public data', error);
+      // Set placeholder data
+      setUserData({
+        name: 'Guest User',
+        email: 'guest@example.com',
+        plan: 'free',
+        role: 'user'
+      });
     }
   };
 
@@ -70,7 +75,7 @@ export default function DashboardPage() {
     }
   };
 
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl">Loading dashboard...</div>
@@ -78,14 +83,32 @@ export default function DashboardPage() {
     );
   }
 
-  const user = session?.user;
-  const plan = user?.plan || 'free';
-  const role = user?.role || 'user';
+  // Use userData from fetchPublicData or placeholder
+  const user = userData || { name: 'Guest User', email: 'guest@example.com', plan: 'free', role: 'user' };
+  const plan = user.plan || 'free';
+  const role = user.role || 'user';
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
+        {/* Auth disabled notice */}
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">Authentication Temporarily Disabled</h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <p>User authentication and personalized features are temporarily unavailable. You are viewing a guest dashboard with limited functionality.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Dashboard</h1>
 
         {/* User Info Card */}

@@ -1,26 +1,14 @@
-import { withAuth } from "next-auth/middleware";
+// Auth temporarily disabled - middleware allows all requests
 import { NextResponse } from "next/server";
 
-export default withAuth(
-  function middleware(req) {
-    // You can add additional logic here if needed
-    return NextResponse.next();
-  },
-  {
-    callbacks: {
-      authorized: ({ token }) => !!token,
-    },
-    pages: {
-      signIn: "/auth/signin",
-    },
-  }
-);
+export default function middleware(req) {
+  // Allow all requests during temporary auth disable
+  return NextResponse.next();
+}
 
-// Specify which routes should be protected
+// No routes are protected during temporary disable
 export const config = {
   matcher: [
-    "/tools/:path*", // protect all tools pages
-    "/profile/:path*",
-    "/dashboard/:path*",
+    // Empty matcher - no routes protected
   ],
 };

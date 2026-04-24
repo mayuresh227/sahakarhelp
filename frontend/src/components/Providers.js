@@ -1,7 +1,8 @@
 "use client";
 
-import { SessionProvider } from "next-auth/react";
-
+// Auth temporarily disabled - provide a mock session provider
 export default function Providers({ children }) {
-  return <SessionProvider>{children}</SessionProvider>;
+  // Simply return children without SessionProvider
+  // This prevents errors when NextAuth is disabled
+  return <>{children}</>;
 }

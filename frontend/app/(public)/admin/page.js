@@ -1,104 +1,19 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 
 export default function AdminPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState({});
+  // Auth temporarily disabled - show message instead
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('users'); // 'users' or 'analytics'
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin');
-    } else if (session?.user?.role !== 'admin') {
-      router.push('/dashboard');
-    }
-  }, [status, session, router]);
+    // No redirect during temporary disable
+    setLoading(false);
+  }, []);
 
-  useEffect(() => {
-    if (session?.user?.role === 'admin') {
-      fetchUsers();
-    }
-  }, [session]);
-
-  const fetchUsers = async () => {
-    try {
-      const res = await fetch('/api/admin/users', {
-        headers: {
-          'Authorization': `Bearer ${session?.accessToken}`,
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data);
-      } else {
-        console.error('Failed to fetch users');
-      }
-    } catch (error) {
-      console.error('Error fetching users', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateUserRole = async (userId, newRole) => {
-    setUpdating(prev => ({ ...prev, [userId]: true }));
-    try {
-      const res = await fetch(`/api/admin/users/${userId}/role`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify({ role: newRole }),
-      });
-      if (res.ok) {
-        setUsers(users.map(user => 
-          user._id === userId ? { ...user, role: newRole } : user
-        ));
-      } else {
-        alert('Failed to update role');
-      }
-    } catch (error) {
-      console.error('Error updating role', error);
-    } finally {
-      setUpdating(prev => ({ ...prev, [userId]: false }));
-    }
-  };
-
-  const updateUserPlan = async (userId, newPlan) => {
-    setUpdating(prev => ({ ...prev, [userId]: true }));
-    try {
-      const res = await fetch(`/api/admin/users/${userId}/plan`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify({ plan: newPlan }),
-      });
-      if (res.ok) {
-        setUsers(users.map(user => 
-          user._id === userId ? { ...user, plan: newPlan } : user
-        ));
-      } else {
-        alert('Failed to update plan');
-      }
-    } catch (error) {
-      console.error('Error updating plan', error);
-    } finally {
-      setUpdating(prev => ({ ...prev, [userId]: false }));
-    }
-  };
-
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl">Loading admin panel...</div>
@@ -106,184 +21,126 @@ export default function AdminPage() {
     );
   }
 
-  if (session?.user?.role !== 'admin') {
-    return null; // will redirect via useEffect
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
+        {/* Auth disabled notice */}
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">Authentication Temporarily Disabled</h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <p>Admin features are temporarily unavailable while authentication is disabled. Please check back later.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
           <div className="text-sm text-gray-600">
-            Total Users: <span className="font-bold">{users.length}</span>
+            Total Users: <span className="font-bold">0</span>
           </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'users' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              User Management
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'analytics' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              Analytics
+            </button>
+          </nav>
         </div>
 
         <div className="bg-white rounded-xl shadow overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold">User Management</h2>
-            <p className="text-gray-600 text-sm">Manage user roles and plans.</p>
+            <h2 className="text-xl font-semibold">
+              {activeTab === 'users' ? 'User Management' : 'Analytics Dashboard'}
+            </h2>
+            <p className="text-gray-600 text-sm">
+              {activeTab === 'users' 
+                ? 'Admin features are temporarily disabled.' 
+                : 'Analytics features are temporarily disabled.'}
+            </p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usage</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {users.map((user) => (
-                  <tr key={user._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                          {user.name?.charAt(0) || 'U'}
-                        </div>
-                        <div className="ml-4">
-                          <div className="font-medium text-gray-900">{user.name || 'No name'}</div>
-                          <div className="text-sm text-gray-500">ID: {user._id.substring(0, 8)}...</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={user.role}
-                        onChange={(e) => updateUserRole(user._id, e.target.value)}
-                        disabled={updating[user._id]}
-                        className="block w-full px-3 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      >
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={user.plan}
-                        onChange={(e) => updateUserPlan(user._id, e.target.value)}
-                        disabled={updating[user._id]}
-                        className="block w-full px-3 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      >
-                        <option value="free">Free</option>
-                        <option value="pro">Pro</option>
-                      </select>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="text-gray-900">{user.usageCount || 0} uses</div>
-                      <div className="text-gray-500 text-xs">Last reset: {new Date(user.lastResetAt).toLocaleDateString()}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => fetchUsers()}
-                        className="text-blue-600 hover:text-blue-900 mr-4"
-                      >
-                        Refresh
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Are you sure you want to delete user ${user.email}?`)) {
-                            // TODO: implement delete
-                          }
-                        }}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-gray-700">
-                Showing <span className="font-medium">{users.length}</span> users
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={fetchUsers}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-                >
-                  Refresh List
-                </button>
-                <button
-                  onClick={() => alert('Export feature not yet implemented')}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium"
-                >
-                  Export CSV
-                </button>
-              </div>
+          <div className="p-8 text-center">
+            <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Required</h3>
+            <p className="text-gray-600 mb-4">
+              User authentication is temporarily disabled. Admin features will be available once authentication is re-enabled.
+            </p>
+            <div className="text-sm text-gray-500">
+              <p>All tools remain available without authentication.</p>
             </div>
           </div>
         </div>
 
-        {/* Stats Cards */}
+        {/* Info boxes */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
           <div className="bg-white rounded-xl shadow p-6">
-            <h3 className="text-lg font-semibold mb-2">User Distribution</h3>
-            <div className="space-y-2">
+            <h3 className="text-lg font-semibold mb-2">System Status</h3>
+            <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">Free Users</span>
-                <span className="font-bold">{users.filter(u => u.plan === 'free').length}</span>
+                <span className="text-gray-600">Authentication</span>
+                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Disabled</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Pro Users</span>
-                <span className="font-bold">{users.filter(u => u.plan === 'pro').length}</span>
+                <span className="text-gray-600">Payment</span>
+                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Disabled</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Admins</span>
-                <span className="font-bold">{users.filter(u => u.role === 'admin').length}</span>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow p-6">
-            <h3 className="text-lg font-semibold mb-2">Tool Usage Overview</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Total Tool Executions</span>
-                <span className="font-bold">{users.reduce((sum, u) => sum + (u.usageCount || 0), 0)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Avg per User</span>
-                <span className="font-bold">
-                  {users.length > 0 ? (users.reduce((sum, u) => sum + (u.usageCount || 0), 0) / users.length).toFixed(1) : 0}
-                </span>
+                <span className="text-gray-600">Tools</span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">Operational</span>
               </div>
             </div>
           </div>
+          
           <div className="bg-white rounded-xl shadow p-6">
             <h3 className="text-lg font-semibold mb-2">Quick Actions</h3>
             <div className="space-y-3">
               <button
-                onClick={() => router.push('/admin/tools')}
-                className="w-full text-left p-3 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 font-medium"
+                onClick={() => window.open('/tools', '_self')}
+                className="w-full text-left p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-medium"
               >
-                Manage Tools
+                Browse Tools
               </button>
               <button
-                onClick={() => router.push('/admin/analytics')}
+                onClick={() => window.open('/test', '_self')}
                 className="w-full text-left p-3 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 font-medium"
               >
-                View Analytics
+                Test API
               </button>
-              <button
-                onClick={() => alert('Feature coming soon')}
-                className="w-full text-left p-3 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 font-medium"
-              >
-                Send Announcement
-              </button>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl shadow p-6">
+            <h3 className="text-lg font-semibold mb-2">Temporary Status</h3>
+            <p className="text-gray-600 text-sm">
+              This is a temporary state for maintenance. All core tools (PDF, GST, EMI, Calculator) remain fully functional.
+            </p>
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-700">
+                <strong>Note:</strong> User accounts, payments, and analytics are temporarily unavailable.
+              </p>
             </div>
           </div>
         </div>

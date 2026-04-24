@@ -4,6 +4,24 @@ const User = require('../models/User');
 const ToolUsage = require('../models/ToolUsage');
 const { requireAuth } = require('../middleware/auth');
 
+// GET /api/user/public-profile - public endpoint for guest users when auth is disabled
+router.get('/public-profile', (req, res) => {
+  // Return placeholder data for guest users
+  res.json({
+    id: 'temporary-user-id',
+    name: 'Guest User',
+    email: 'guest@example.com',
+    image: null,
+    role: 'user',
+    plan: 'free',
+    usageCount: 0,
+    lastResetAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    todayUsageCount: 0,
+    dailyLimit: 5
+  });
+});
+
 // GET /api/user/profile - get current user profile
 router.get('/profile', requireAuth, async (req, res) => {
   try {
