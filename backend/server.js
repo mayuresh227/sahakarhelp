@@ -47,17 +47,6 @@ app.use(cors());
 app.use(compression());
 app.use(bodyParser.json({ limit: '10mb' }));
 
-// Request timeout middleware (30 seconds for production)
-app.use((req, res, next) => {
-  // Set socket timeouts to avoid hanging requests
-  req.setTimeout(30000, () => {
-    console.warn(`Request timeout: ${req.method} ${req.url}`);
-  });
-  res.setTimeout(30000, () => {
-    console.warn(`Response timeout: ${req.method} ${req.url}`);
-  });
-  next();
-});
 
 // ====================
 // Early routes (no DB dependency)
