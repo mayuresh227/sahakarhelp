@@ -2,6 +2,9 @@
 # Cache bust: ensure fresh build after fixing await syntax error
 FROM node:18-slim AS builder
 
+# Build argument to force cache invalidation on each deployment
+ARG CACHE_BUST=1
+
 # Install dependencies for native modules (sharp)
 RUN apt-get update && apt-get install -y \
     python3 \
