@@ -6,23 +6,41 @@ const { requireAuth } = require('../middleware/auth');
 const Subscription = require('../models/Subscription');
 const User = require('../models/User');
 
-// Initialize Razorpay instance (only if credentials exist)
-let razorpay;
-try {
-    if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-        razorpay = new Razorpay({
-            key_id: process.env.RAZORPAY_KEY_ID,
-            key_secret: process.env.RAZORPAY_KEY_SECRET
-        });
-        console.log('✅ Razorpay initialized');
-    } else {
-        console.warn('⚠️ Razorpay credentials missing. Payment features disabled.');
+// Payment temporarily disabled flag
+const PAYMENT_DISABLED = true;
+
+// Initialize Razorpay instance (only if credentials exist and payment not disabled)
+let razorpay = null;
+if (!PAYMENT_DISABLED) {
+    try {
+        if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+            razorpay = new Razorpay({
+                key_id: process.env.RAZORPAY_KEY_ID,
+                key_secret: process.env.RAZORPAY_KEY_SECRET
+            });
+            console.log('✅ Razorpay initialized');
+        } else {
+            console.warn('⚠️ Razorpay credentials missing. Payment features disabled.');
+            razorpay = null;
+        }
+    } catch (err) {
+        console.error('❌ Razorpay initialization failed:', err.message);
         razorpay = null;
     }
-} catch (err) {
-    console.error('❌ Razorpay initialization failed:', err.message);
-    razorpay = null;
+} else {
+    console.warn('⚠️ Payment temporarily disabled via PAYMENT_DISABLED flag');
 }
+
+// Middleware to check if payment is disabled
+const checkPaymentDisabled = (req, res, next) => {
+    if (PAYMENT_DISABLED) {
+        return res.status(503).json({
+            error: 'Payment temporarily disabled',
+            message: 'Payment features are temporarily unavailable. Please check back later.'
+        });
+    }
+    next();
+};
 
 // Define plan details (in paise, 1 INR = 100 paise)
 const PLANS = {
@@ -43,7 +61,7 @@ const PLANS = {
 };
 
 // POST /api/payment/create-subscription - create a Razorpay subscription
-router.post('/create-subscription', requireAuth, async (req, res) => {
+router.post('/create-subscription', checkPaymentDisabled, requireAuth, async (req, res) => {
     try {
         const { planId } = req.body; // 'pro_monthly' or 'pro_yearly'
         const plan = PLANS[planId];
@@ -118,7 +136,7 @@ router.post('/create-subscription', requireAuth, async (req, res) => {
 });
 
 // POST /api/payment/verify - verify payment signature after frontend success
-router.post('/verify', requireAuth, async (req, res) => {
+router.post('/verify', checkPaymentDisabled, requireAuth, async (req, res) => {
     try {
         if (!process.env.RAZORPAY_KEY_SECRET) {
             return res.status(503).json({ error: 'Payment service configuration missing' });
@@ -177,7 +195,7 @@ router.post('/verify', requireAuth, async (req, res) => {
 });
 
 // POST /api/payment/webhook - Razorpay webhook handler (no auth)
-router.post('/webhook', async (req, res) => {
+router.post('/webhook', checkPaymentDisabled, async (req, res) => {
     try {
         const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
         if (!webhookSecret) {
@@ -245,7 +263,7 @@ router.post('/webhook', async (req, res) => {
 });
 
 // GET /api/payment/subscription - get current user's subscription details
-router.get('/subscription', requireAuth, async (req, res) => {
+router.get('/subscription', checkPaymentDisabled, requireAuth, async (req, res) => {
     try {
         const subscription = await Subscription.findOne({ userId: req.user.id })
             .sort({ createdAt: -1 })
@@ -263,7 +281,7 @@ router.get('/subscription', requireAuth, async (req, res) => {
 });
 
 // POST /api/payment/cancel-subscription - cancel subscription
-router.post('/cancel-subscription', requireAuth, async (req, res) => {
+router.post('/cancel-subscription', checkPaymentDisabled, requireAuth, async (req, res) => {
     try {
         const subscription = await Subscription.findOne({ userId: req.user.id, status: 'active' });
         if (!subscription) {

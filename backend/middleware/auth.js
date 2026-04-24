@@ -1,97 +1,68 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-
-// Authentication middleware that verifies NextAuth JWT token from Authorization header or cookies
+// Auth temporarily disabled - all requests are allowed
 const authMiddleware = async (req, res, next) => {
-    try {
-        let token = null;
-
-        // 1. Check Authorization header (Bearer token)
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            token = authHeader.split(' ')[1];
-        }
-        // 2. Check cookies (for HTTP‑only cookies)
-        if (!token && req.cookies) {
-            // NextAuth default cookie names
-            token = req.cookies['next-auth.session-token'] ||
-                    req.cookies['__Secure-next-auth.session-token'];
-        }
-
-        if (!token) {
-            // No token provided – treat as unauthenticated
-            req.user = null;
-            req.isAuthenticated = false;
-            return next();
-        }
-
-        const secret = process.env.NEXTAUTH_SECRET || 'your-secret-key'; // must match frontend secret
-        
-        // Verify JWT (includes expiry check)
-        const decoded = jwt.verify(token, secret);
-        
-        // Find user in database
-        const user = await User.findById(decoded.id);
-        if (!user) {
-            req.user = null;
-            req.isAuthenticated = false;
-            return next();
-        }
-
-        // Attach user info to request
-        req.user = {
-            id: user._id.toString(),
-            email: user.email,
-            name: user.name,
-            image: user.image,
-            role: user.role,
-            plan: user.plan,
-            usageCount: user.usageCount,
-            lastResetAt: user.lastResetAt
-        };
-        req.isAuthenticated = true;
-        next();
-    } catch (error) {
-        // Token invalid, expired, or verification failed
-        console.error('Auth middleware error:', error.message);
-        req.user = null;
-        req.isAuthenticated = false;
-        next();
-    }
+    // Set dummy user data for compatibility
+    req.user = {
+        id: 'temporary-user-id',
+        email: 'guest@example.com',
+        name: 'Guest User',
+        role: 'user',
+        plan: 'free',
+        usageCount: 0
+    };
+    req.isAuthenticated = false; // Mark as not authenticated but with guest access
+    next();
 };
 
-// Middleware to require authentication for specific routes
+// Middleware to require authentication for specific routes - temporarily disabled
 const requireAuth = (req, res, next) => {
-    if (!req.isAuthenticated || !req.user) {
-        return res.status(401).json({ error: 'Authentication required' });
+    // Allow all requests during temporary disable
+    // Create a temporary user object for routes that expect req.user
+    if (!req.user) {
+        req.user = {
+            id: 'temporary-user-id',
+            email: 'guest@example.com',
+            name: 'Guest User',
+            role: 'user',
+            plan: 'free',
+            usageCount: 0
+        };
     }
     next();
 };
 
-// Role-based access control middleware
+// Role-based access control middleware - temporarily disabled
 const requireRole = (role) => {
     return (req, res, next) => {
-        if (!req.isAuthenticated || !req.user) {
-            return res.status(401).json({ error: 'Authentication required' });
-        }
-        if (req.user.role !== role) {
-            return res.status(403).json({ error: 'Insufficient permissions' });
+        // Allow all roles during temporary disable
+        // Ensure req.user exists
+        if (!req.user) {
+            req.user = {
+                id: 'temporary-user-id',
+                email: 'guest@example.com',
+                name: 'Guest User',
+                role: role, // Grant requested role for compatibility
+                plan: 'free',
+                usageCount: 0
+            };
         }
         next();
     };
 };
 
-// Plan-based access control middleware
+// Plan-based access control middleware - temporarily disabled
 const requirePlan = (plan) => {
     return (req, res, next) => {
-        if (!req.isAuthenticated || !req.user) {
-            return res.status(401).json({ error: 'Authentication required' });
-        }
-        if (req.user.plan !== plan) {
-            return res.status(403).json({
-                error: 'Upgrade required',
-                message: `This feature requires a ${plan} plan. Please upgrade.`
-            });
+        // Allow all plans during temporary disable
+        // Ensure req.user exists
+        if (!req.user) {
+            req.user = {
+                id: 'temporary-user-id',
+                email: 'guest@example.com',
+                name: 'Guest User',
+                role: 'user',
+                plan: plan, // Grant requested plan for compatibility
+                usageCount: 0
+            };
         }
         next();
     };

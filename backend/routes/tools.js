@@ -31,15 +31,14 @@ router.get('/:slug/config', async (req, res) => {
   } catch (error) {
     // Track error in analytics (if trackError function exists)
     if (typeof trackError === 'function') {
-      try {
-        await trackError(req.user?.id || null, error.message, {
-          toolSlug: req.params.slug,
-          toolName: 'unknown',
-          statusCode: 500
-        });
-      } catch (trackErr) {
+      // Call without await to avoid syntax issues, catch any errors
+      trackError(req.user?.id || null, error.message, {
+        toolSlug: req.params.slug,
+        toolName: 'unknown',
+        statusCode: 500
+      }).catch(trackErr => {
         console.error('Failed to track error:', trackErr.message);
-      }
+      });
     }
     res.status(500).json({ error: error.message });
   }
@@ -135,17 +134,16 @@ router.post('/:slug', async (req, res) => {
 
     // Track analytics for all tool usage (authenticated and unauthenticated)
     if (typeof trackToolUsage === 'function') {
-      try {
-        await trackToolUsage(req.user?.id || null, slug, {
-          executionTime,
-          toolName: toolMeta.name,
-          success: true,
-          userPlan: req.user?.plan || 'anonymous',
-          userRole: req.user?.role || 'anonymous'
-        });
-      } catch (trackErr) {
+      // Call without await, catch any errors
+      trackToolUsage(req.user?.id || null, slug, {
+        executionTime,
+        toolName: toolMeta.name,
+        success: true,
+        userPlan: req.user?.plan || 'anonymous',
+        userRole: req.user?.role || 'anonymous'
+      }).catch(trackErr => {
         console.error('Failed to track tool usage:', trackErr.message);
-      }
+      });
     }
 
     res.json(result);

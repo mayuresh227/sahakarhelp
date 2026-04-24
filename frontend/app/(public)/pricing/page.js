@@ -72,11 +72,18 @@ export default function PricingPage() {
     }, [session]);
 
     const handleUpgrade = async (planId) => {
+        if (planId === 'free') return;
+        
+        // Payment temporarily disabled
+        alert('Payment features are temporarily disabled. Please check back later.');
+        return;
+        
+        // Original code commented out for easy re-enablement
+        /*
         if (!session) {
             alert('Please sign in to upgrade');
             return;
         }
-        if (planId === 'free') return;
 
         setLoading(true);
         try {
@@ -145,6 +152,7 @@ export default function PricingPage() {
         } finally {
             setLoading(false);
         }
+        */
     };
 
     return (
