@@ -13,12 +13,10 @@ router.get('/', async (req, res) => {
     res.json(tools);
   } catch (error) {
     console.error("Tool error:", error);
-    try {
-      if (typeof trackError === "function") {
-        await trackError(req.user?.id || null, error.message, {});
-      }
-    } catch (err) {
-      console.error("trackError failed:", err);
+    if (typeof trackError === "function") {
+      trackError(req.user?.id || null, error.message, {}).catch(err => {
+        console.error("trackError failed:", err);
+      });
     }
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -38,16 +36,14 @@ router.get('/:slug/config', async (req, res) => {
     });
   } catch (error) {
     console.error("Tool error:", error);
-    try {
-      if (typeof trackError === "function") {
-        await trackError(req.user?.id || null, error.message, {
-          toolSlug: req.params.slug,
-          toolName: 'unknown',
-          statusCode: 500
-        });
-      }
-    } catch (err) {
-      console.error("trackError failed:", err);
+    if (typeof trackError === "function") {
+      trackError(req.user?.id || null, error.message, {
+        toolSlug: req.params.slug,
+        toolName: 'unknown',
+        statusCode: 500
+      }).catch(err => {
+        console.error("trackError failed:", err);
+      });
     }
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -158,16 +154,14 @@ router.post('/:slug', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error("Tool error:", error);
-    try {
-      if (typeof trackError === "function") {
-        await trackError(req.user?.id || null, error.message, {
-          toolSlug: slug,
-          toolName: toolMeta?.name || 'unknown',
-          statusCode: 500
-        });
-      }
-    } catch (err) {
-      console.error("trackError failed:", err);
+    if (typeof trackError === "function") {
+      trackError(req.user?.id || null, error.message, {
+        toolSlug: slug,
+        toolName: toolMeta?.name || 'unknown',
+        statusCode: 500
+      }).catch(err => {
+        console.error("trackError failed:", err);
+      });
     }
     return res.status(500).json({ error: "Internal server error" });
   }
