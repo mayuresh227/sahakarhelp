@@ -142,12 +142,11 @@ router.get('/:slug/config', async (req, res) => {
 
 // Execute tool with access control
 router.post('/:slug', async (req, res) => {
-  let slug, toolMeta;
   try {
-    slug = req.params.slug;
+    const slug = req.params.slug;
     
     // Fetch tool metadata with safe fallback
-    toolMeta = await findToolMetaSafe(slug);
+    const toolMeta = await findToolMetaSafe(slug);
     if (!toolMeta || !toolMeta.active) {
       // If DB is down, we can still execute if tool exists in registry
       const registryTool = ToolRegistry.getTool(slug);

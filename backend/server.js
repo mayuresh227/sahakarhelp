@@ -26,6 +26,8 @@ const MONGODB_URI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb
 mongoose.connect(MONGODB_URI, {
   serverSelectionTimeoutMS: 10000, // Timeout after 10s if no MongoDB
   socketTimeoutMS: 45000,
+  bufferTimeoutMS: 5000, // Timeout for buffered commands
+  bufferCommands: false, // Disable buffering to fail fast when not connected
 }).then(() => {
   console.log('✅ MongoDB connected successfully');
 }).catch(err => {
@@ -33,6 +35,9 @@ mongoose.connect(MONGODB_URI, {
   // Do not crash the server; allow it to start but tools will fail
   console.log('⚠️  Server will start without database connection. Some features may be unavailable.');
 });
+
+// Set global mongoose settings
+mongoose.set('bufferTimeoutMS', 5000);
 
 // ====================
 // Basic middleware
