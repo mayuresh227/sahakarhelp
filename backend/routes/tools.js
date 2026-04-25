@@ -8,7 +8,12 @@ const { trackToolUsage, trackError } = require('../middleware/analytics');
 const mongoose = require('mongoose');
 
 // Helper to check if MongoDB is connected
-const isDbConnected = () => mongoose.connection.readyState === 1; // 1 = connected
+const isDbConnected = () => {
+    const state = mongoose.connection.readyState;
+    const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+    console.debug(`MongoDB connection state: ${states[state]} (${state})`);
+    return state === 1; // 1 = connected
+};
 
 // Helper to run query with timeout
 const queryWithTimeout = (queryPromise, timeoutMs = 5000) => {
@@ -198,11 +203,18 @@ router.get('/', async (req, res) => {
     const tools = await getActiveToolsSafe();
     res.json(tools);
   } catch (error) {
-    console.error("Tool error:", error);
+    const timestamp = new Date().toISOString();
+    const requestId = Date.now();
+    console.error(`[${timestamp}] [req-${requestId}] Tool error:`, error.message, error.stack);
     // Even if tracking fails, we still respond
     if (typeof trackError === "function") {
-      trackError(req.user?.id || null, error.message, {}).catch(err => {
-        console.error("trackError failed:", err);
+      trackError(req.user?.id || null, error.message, {
+        requestId,
+        timestamp,
+        path: req.path,
+        method: req.method,
+      }).catch(err => {
+        console.error(`[${timestamp}] trackError failed:`, err.message);
       });
     }
     // Return empty array instead of 500 to keep service available
@@ -410,5 +422,39 @@ async function executeToolWithMockMeta(slug, req, res, mockToolMeta) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+
+// Debug endpoint for troubleshooting
+router.get('/debug', (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  const staticTools = getStaticTools();
+  const registryTools = ToolRegistry.getAllTools ? ToolRegistry.getAllTools() : [];
+  const env = {
+    NODE_ENV: process.env.NODE_ENV,
+    MONGO_URI: process.env.MONGO_URI ? '***' : 'not set',
+    MONGODB_URI: process.env.MONGODB_URI ? '***' : 'not set',
+    PORT: process.env.PORT,
+  };
+  res.json({
+    timestamp: new Date().toISOString(),
+    mongodb: {
+      state: states[dbState] || 'unknown',
+      readyState: dbState,
+      isConnected: dbState === 1,
+    },
+    tools: {
+      staticCount: staticTools.length,
+      registryCount: registryTools.length,
+      staticSlugs: staticTools.map(t => t.slug),
+      registrySlugs: registryTools.map(t => t.slug || t.name),
+    },
+    environment: env,
+    memory: {
+      rss: process.memoryUsage().rss,
+      heapTotal: process.memoryUsage().heapTotal,
+      heapUsed: process.memoryUsage().heapUsed,
+    },
+  });
+});
 
 module.exports = router;
