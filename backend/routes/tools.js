@@ -14,22 +14,83 @@ const isDbConnected = () => mongoose.connection.readyState === 1; // 1 = connect
 const queryWithTimeout = (queryPromise, timeoutMs = 5000) => {
     return Promise.race([
         queryPromise,
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Database query timeout')), timeoutMs)
         )
     ]);
 };
 
+// Static fallback tools for testing when DB is unavailable
+const getStaticTools = () => {
+    return [
+        {
+            slug: 'calculator',
+            name: 'Calculator',
+            categories: ['calculator-tools'],
+            engineType: 'calculator',
+            config: {
+                inputs: [
+                    { name: 'expression', type: 'text', label: 'Expression', required: true }
+                ],
+                outputs: [
+                    { name: 'result', label: 'Result', format: 'number' }
+                ]
+            },
+            active: true,
+            requiresAuth: false,
+            requiredPlan: 'free',
+            requiredRole: 'user',
+            dailyLimitFree: 5
+        },
+        {
+            slug: 'pdf-compressor',
+            name: 'PDF Compressor',
+            categories: ['pdf-tools'],
+            engineType: 'pdf',
+            config: {
+                inputs: [
+                    { name: 'file', type: 'file', label: 'PDF File', required: true },
+                    { name: 'compressionLevel', type: 'select', label: 'Compression Level', options: ['low', 'medium', 'high'], default: 'medium' }
+                ],
+                outputs: [
+                    { name: 'result', label: 'Compressed PDF', format: 'pdf' }
+                ]
+            },
+            active: true,
+            requiresAuth: false,
+            requiredPlan: 'free',
+            requiredRole: 'user',
+            dailyLimitFree: 3
+        }
+    ];
+};
+
+// Helper to find a static tool by slug
+const getStaticToolBySlug = (slug) => {
+    const staticTools = getStaticTools();
+    return staticTools.find(tool => tool.slug === slug) || null;
+};
+
 // Safe version of ToolMetadata.find with fallback
 const getActiveToolsSafe = async () => {
     if (!isDbConnected()) {
-        console.warn('DB not connected, returning empty tools list');
-        return [];
+        console.warn('DB not connected, returning static tools list for testing');
+        return getStaticTools();
     }
     try {
-        return await queryWithTimeout(ToolMetadata.find({ active: true }));
+        const tools = await queryWithTimeout(ToolMetadata.find({ active: true }));
+        if (tools.length === 0) {
+            console.warn('No tools found in DB, returning static fallback');
+            return getStaticTools();
+        }
+        return tools;
     } catch (err) {
         console.warn('Failed to fetch tools from DB:', err.message);
+        // Return static tools for testing in development
+        if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+            console.warn('Returning static tools due to DB error');
+            return getStaticTools();
+        }
         return [];
     }
 };
@@ -37,13 +98,49 @@ const getActiveToolsSafe = async () => {
 // Safe version of ToolMetadata.findOne with fallback
 const findToolMetaSafe = async (slug) => {
     if (!isDbConnected()) {
-        console.warn('DB not connected, returning null tool metadata');
+        console.warn('DB not connected, attempting static fallback');
+        const staticTool = getStaticToolBySlug(slug);
+        if (staticTool) {
+            console.log('Found static tool for slug:', slug);
+            return staticTool;
+        }
+        // Also check ToolRegistry (in-memory)
+        const registryTool = ToolRegistry.getTool(slug);
+        if (registryTool) {
+            console.log('Found tool in registry for slug:', slug);
+            return registryTool;
+        }
+        console.warn('No static or registry tool found for slug:', slug);
         return null;
     }
     try {
-        return await queryWithTimeout(ToolMetadata.findOne({ slug }));
+        const tool = await queryWithTimeout(ToolMetadata.findOne({ slug }));
+        if (tool) return tool;
+        // If not found in DB, fallback to static/registry
+        const staticTool = getStaticToolBySlug(slug);
+        if (staticTool) {
+            console.log('DB tool not found, using static fallback for:', slug);
+            return staticTool;
+        }
+        const registryTool = ToolRegistry.getTool(slug);
+        if (registryTool) {
+            console.log('DB tool not found, using registry tool for:', slug);
+            return registryTool;
+        }
+        return null;
     } catch (err) {
         console.warn('Failed to fetch tool metadata:', err.message);
+        // Fallback to static/registry
+        const staticTool = getStaticToolBySlug(slug);
+        if (staticTool) {
+            console.log('DB error, using static fallback for:', slug);
+            return staticTool;
+        }
+        const registryTool = ToolRegistry.getTool(slug);
+        if (registryTool) {
+            console.log('DB error, using registry tool for:', slug);
+            return registryTool;
+        }
         return null;
     }
 };
