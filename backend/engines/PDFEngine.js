@@ -56,19 +56,34 @@ class PDFEngine {
 
     async mergePDFs(files) {
         try {
+            if (!Array.isArray(files) || files.length === 0) {
+                throw new Error('At least one PDF file is required');
+            }
+
             const mergedPdf = await PDFDocument.create();
 
             for (const file of files) {
-                const pdfBytes = Buffer.from(file.buffer);
+                if (!file || !file.buffer) {
+                    throw new Error('Uploaded file is missing its buffer');
+                }
+
+                const pdfBytes = Buffer.isBuffer(file.buffer)
+                    ? file.buffer
+                    : Buffer.from(file.buffer);
+
                 const pdfDoc = await PDFDocument.load(pdfBytes);
                 const pages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
                 pages.forEach(page => mergedPdf.addPage(page));
             }
 
             const mergedBytes = await mergedPdf.save();
+            const mergedBuffer = Buffer.from(mergedBytes);
+
             return {
                 success: true,
-                result: mergedBytes.toString('base64'),
+                buffer: mergedBuffer,
+                contentType: 'application/pdf',
+                fileName: `merged-${Date.now()}.pdf`,
                 format: 'pdf'
             };
         } catch (error) {

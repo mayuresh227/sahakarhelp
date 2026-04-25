@@ -218,6 +218,37 @@ const validateUploadedFiles = (req, res, next) => {
   next();
 };
 
+const sanitizeFileName = (fileName) => {
+  return String(fileName || 'result.pdf').replace(/[^a-zA-Z0-9._-]/g, '_');
+};
+
+const sendToolResult = (res, result, slug) => {
+  const outputBuffer = result && result.buffer;
+
+  if (Buffer.isBuffer(outputBuffer)) {
+    const fileName = sanitizeFileName(result.fileName || `${slug}.pdf`);
+    const contentType = result.contentType || 'application/pdf';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', outputBuffer.length);
+    return res.end(outputBuffer);
+  }
+
+  if (outputBuffer instanceof Uint8Array) {
+    const buffer = Buffer.from(outputBuffer);
+    const fileName = sanitizeFileName(result.fileName || `${slug}.pdf`);
+    const contentType = result.contentType || 'application/pdf';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', buffer.length);
+    return res.end(buffer);
+  }
+
+  return res.json(result);
+};
+
 // ====================
 // Routes
 // ====================
@@ -271,6 +302,14 @@ router.post('/:slug', async (req, res) => {
   const tool = await getToolBySlug(req.params.slug);
   if (!tool) {
     return res.status(404).json({ error: 'Tool not found' });
+  }
+
+  if (
+    typeof registry.getTool === 'function' &&
+    typeof registry.registerTool === 'function' &&
+    !registry.getTool(req.params.slug)
+  ) {
+    registry.registerTool(tool);
   }
 
   const fileInputs = tool.config.inputs.filter(input => input.type === 'file');
@@ -344,7 +383,7 @@ router.post('/:slug', async (req, res) => {
 
       try {
         const result = await registry.executeTool(req.params.slug, inputs);
-        res.json(result);
+        sendToolResult(res, result, req.params.slug);
       } catch (executionError) {
         console.error('Tool execution failed:', executionError);
         res.status(500).json({
@@ -357,7 +396,7 @@ router.post('/:slug', async (req, res) => {
     // No file inputs, proceed with JSON body
     try {
       const result = await registry.executeTool(req.params.slug, req.body);
-      res.json(result);
+      sendToolResult(res, result, req.params.slug);
     } catch (executionError) {
       console.error('Tool execution failed:', executionError);
       res.status(500).json({
