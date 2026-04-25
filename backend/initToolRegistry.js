@@ -2,23 +2,40 @@ const ToolRegistry = require('./services/ToolRegistry');
 const ToolMetadata = require('./models/ToolMetadata');
 
 // Initialize engines - fail fast if any engine fails to load
+console.log('Loading engines...');
+console.log('Loading CalculatorEngine...');
 const CalculatorEngine = require('./engines/CalculatorEngine');
+console.log('CalculatorEngine loaded');
+
+console.log('Loading PDFEngine...');
 const PDFEngine = require('./engines/PDFEngine');
+console.log('PDFEngine loaded');
+
+console.log('Loading DocumentEngine...');
 const DocumentEngine = require('./engines/DocumentEngine');
+console.log('DocumentEngine loaded');
+
+console.log('Loading ImageEngine...');
 const ImageEngine = require('./engines/ImageEngine');
+console.log('ImageEngine loaded');
 
 // Register engines
+console.log('Registering engines...');
 const calculatorEngine = new CalculatorEngine();
 ToolRegistry.registerEngine('calculator', calculatorEngine);
+console.log('Calculator engine registered');
 
 const pdfEngine = new PDFEngine();
 ToolRegistry.registerEngine('pdf', pdfEngine);
+console.log('PDF engine registered');
 
 const documentEngine = new DocumentEngine();
 ToolRegistry.registerEngine('document', documentEngine);
+console.log('Document engine registered');
 
 const imageEngine = new ImageEngine();
 ToolRegistry.registerEngine('image', imageEngine);
+console.log('Image engine registered');
 
 // Register fallback tools (always available)
 const registerFallbackTools = () => {

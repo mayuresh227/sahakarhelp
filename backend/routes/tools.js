@@ -117,11 +117,15 @@ const getToolBySlug = async (slug) => {
 };
 
 const loadToolRegistry = () => {
+  console.log('Loading tool registry...');
   try {
-    return { registry: require('../initToolRegistry'), error: null };
+    const registry = require('../initToolRegistry');
+    console.log('Tool registry loaded successfully');
+    return { registry, error: null };
   } catch (error) {
     console.error('Failed to load tool registry:', error);
-    return { registry: null, error };
+    // Instead of silently skipping, re-throw to fail fast
+    throw new Error(`Tool registry failed to load: ${error.message}`);
   }
 };
 
@@ -158,12 +162,15 @@ router.get('/:slug/config', async (req, res) => {
 });
 
 router.post('/:slug', async (req, res) => {
-  const { registry, error } = loadToolRegistry();
-
-  if (!registry) {
+  let registry;
+  try {
+    const loaded = loadToolRegistry();
+    registry = loaded.registry;
+  } catch (loadError) {
+    console.error('Tool registry load failed:', loadError);
     return res.status(503).json({
       error: 'Tool engine unavailable',
-      message: error.message
+      message: loadError.message
     });
   }
 
