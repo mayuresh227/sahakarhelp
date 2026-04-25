@@ -20,7 +20,7 @@ This guide ensures successful deployment of the backend on Railway.
    - Use one Railway service for the API.
    - Set **Root Directory** to `/backend`.
    - Set **Config File Path** to `/backend/railway.json`.
-   - Set **Build Command** to `npm ci`.
+   - (Optional) If using Dockerfile (recommended), no build command is needed; Railway will detect the Dockerfile automatically.
    - Set **Start Command** to `npm start`.
    - Leave `PORT` unset unless you intentionally configure a matching public domain target port.
 
@@ -44,21 +44,21 @@ Add these environment variables in Railway Dashboard → Project → Variables:
 ## Step 3: Deployment Configuration
 
 ### Railway Configuration File
-The backend service uses `backend/railway.json`:
+The backend service uses `backend/railway.json`. The configuration uses Dockerfile for building (ensuring native dependencies like libvips are installed):
 
 ```json
 {
-  "build": {
-    "builder": "RAILPACK",
-    "buildCommand": "npm ci"
-  },
   "deploy": {
     "startCommand": "npm start",
-    "healthcheckPath": "/api/test",
-    "healthcheckTimeout": 60
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 30,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
   }
 }
 ```
+
+If you want to use Nixpacks instead, you can add a `build` section with `"builder": "NIXPACKS"`. However, Dockerfile is recommended for native modules.
 
 ### Important Settings
 - **Public Networking**: In the backend service settings, generate a Railway domain under **Networking → Public Networking**.

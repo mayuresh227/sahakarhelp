@@ -14,11 +14,8 @@ const invoiceRouter = require('./routes/invoiceRoutes');
 const paymentRouter = require('./routes/payment');
 
 const app = express();
-const PORT = process.env.PORT;
-if (!PORT) {
-  console.error('ERROR: PORT environment variable is not set');
-  process.exit(1);
-}
+const PORT = process.env.PORT || 8080;
+console.log(`Server starting on port ${PORT}`);
 
 console.log("🚀 Starting server with all routes...");
 
