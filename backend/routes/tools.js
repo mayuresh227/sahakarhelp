@@ -1,9 +1,32 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const multer = require('multer');
 const ToolMetadata = require('../models/ToolMetadata');
 
 const router = express.Router();
 const QUERY_TIMEOUT_MS = 5000;
+
+// ====================
+// Multer Configuration
+// ====================
+const multerConfig = {
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB per file
+    files: 5, // maximum number of files
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept only PDF files
+    const allowedMimes = ['application/pdf'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF files are allowed.'), false);
+    }
+  },
+};
+
+const upload = multer(multerConfig);
 
 const fallbackTools = [
   {
@@ -50,6 +73,25 @@ const fallbackTools = [
     requiredPlan: 'free',
     requiredRole: 'user',
     dailyLimitFree: 3
+  },
+  {
+    slug: 'pdf-merge',
+    name: 'PDF Merge',
+    categories: ['pdf-tools'],
+    engineType: 'pdf',
+    config: {
+      inputs: [
+        { name: 'files', type: 'file', label: 'PDF Files', required: true, multiple: true, accept: '.pdf' }
+      ],
+      outputs: [
+        { name: 'result', label: 'Merged PDF', format: 'pdf' }
+      ]
+    },
+    active: true,
+    requiresAuth: false,
+    requiredPlan: 'free',
+    requiredRole: 'user',
+    dailyLimitFree: 5
   }
 ];
 
@@ -129,6 +171,56 @@ const loadToolRegistry = () => {
   }
 };
 
+// ====================
+// File Upload Validation & Normalization
+// ====================
+const validateUploadedFiles = (req, res, next) => {
+  // req.files may be an array (from upload.array) or an object (from upload.single)
+  let files = req.files;
+  if (!files) {
+    return res.status(400).json({
+      error: 'No files uploaded',
+      message: 'Please upload at least one file.'
+    });
+  }
+
+  // Normalize to array
+  if (!Array.isArray(files)) {
+    files = [files];
+  }
+
+  // Check file count
+  if (files.length === 0) {
+    return res.status(400).json({
+      error: 'No files uploaded',
+      message: 'Please upload at least one file.'
+    });
+  }
+
+  // Validate each file
+  for (const file of files) {
+    if (!file.buffer || !Buffer.isBuffer(file.buffer)) {
+      return res.status(400).json({
+        error: 'Invalid file data',
+        message: 'File buffer is missing or corrupted.'
+      });
+    }
+    if (file.mimetype !== 'application/pdf') {
+      return res.status(400).json({
+        error: 'Invalid file type',
+        message: 'Only PDF files are allowed.'
+      });
+    }
+  }
+
+  // Attach normalized array to request for downstream processing
+  req.normalizedFiles = files;
+  next();
+};
+
+// ====================
+// Routes
+// ====================
 router.get('/', async (req, res) => {
   try {
     const tools = await getActiveTools();
@@ -161,6 +253,7 @@ router.get('/:slug/config', async (req, res) => {
   }
 });
 
+// POST route with file upload support
 router.post('/:slug', async (req, res) => {
   let registry;
   try {
@@ -174,15 +267,104 @@ router.post('/:slug', async (req, res) => {
     });
   }
 
-  try {
-    const result = await registry.executeTool(req.params.slug, req.body);
-    res.json(result);
-  } catch (executionError) {
-    console.error('Tool execution failed:', executionError);
-    res.status(500).json({
-      error: 'Tool execution failed',
-      message: executionError.message
+  // Determine if tool expects file inputs
+  const tool = await getToolBySlug(req.params.slug);
+  if (!tool) {
+    return res.status(404).json({ error: 'Tool not found' });
+  }
+
+  const fileInputs = tool.config.inputs.filter(input => input.type === 'file');
+  const hasFileInput = fileInputs.length > 0;
+
+  // If tool expects files, we need to parse multipart/form-data
+  if (hasFileInput) {
+    // Determine field name (assume first file input)
+    const fieldName = fileInputs[0].name;
+    const isMultiple = fileInputs[0].multiple === true;
+
+    // Create appropriate multer middleware
+    const uploadMiddleware = isMultiple
+      ? upload.array(fieldName)
+      : upload.single(fieldName);
+
+    // Execute upload middleware manually
+    uploadMiddleware(req, res, async (err) => {
+      if (err) {
+        console.error('File upload error:', err);
+        return res.status(400).json({
+          error: 'File upload failed',
+          message: err.message
+        });
+      }
+
+      // Validate uploaded files
+      let files = req.files || (req.file ? [req.file] : []);
+      if (files.length === 0) {
+        return res.status(400).json({
+          error: 'No files uploaded',
+          message: `Please upload at least one file for field '${fieldName}'.`
+        });
+      }
+
+      // Normalize to array
+      if (!Array.isArray(files)) {
+        files = [files];
+      }
+
+      // Validate each file
+      for (const file of files) {
+        if (!file.buffer || !Buffer.isBuffer(file.buffer)) {
+          return res.status(400).json({
+            error: 'Invalid file data',
+            message: 'File buffer is missing or corrupted.'
+          });
+        }
+        if (file.mimetype !== 'application/pdf') {
+          return res.status(400).json({
+            error: 'Invalid file type',
+            message: 'Only PDF files are allowed.'
+          });
+        }
+      }
+
+      // Build inputs object
+      const inputs = { ...req.body };
+      inputs[fieldName] = files;
+
+      // If there's an 'options' field that is a JSON string, parse it
+      if (inputs.options && typeof inputs.options === 'string') {
+        try {
+          const options = JSON.parse(inputs.options);
+          Object.assign(inputs, options);
+          delete inputs.options;
+        } catch (e) {
+          // ignore parse error, keep as string
+        }
+      }
+
+      try {
+        const result = await registry.executeTool(req.params.slug, inputs);
+        res.json(result);
+      } catch (executionError) {
+        console.error('Tool execution failed:', executionError);
+        res.status(500).json({
+          error: 'Tool execution failed',
+          message: executionError.message
+        });
+      }
     });
+  } else {
+    // No file inputs, proceed with JSON body
+    try {
+      const result = await registry.executeTool(req.params.slug, req.body);
+      res.json(result);
+    } catch (executionError) {
+      console.error('Tool execution failed:', executionError);
+      res.status(500).json({
+        error: 'Tool execution failed',
+        message: executionError.message
+      });
+    }
   }
 });
 
