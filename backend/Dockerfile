@@ -1,48 +1,22 @@
-# Use Node.js 18 slim for smaller image with native compilation support
-# Cache bust: ensure fresh build after fixing await syntax error
-FROM node:18-slim AS builder
+FROM node:18
 
-# Build argument to force cache invalidation on each deployment
-ARG CACHE_BUST=1
-
-# Install dependencies for native modules (sharp) including libvips
+# Install system deps for sharp
 RUN apt-get update && apt-get install -y \
-    python3 \
-    make \
-    g++ \
     libvips-dev \
+    build-essential \
+    python3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
-
-# Install all dependencies (including dev dependencies for building)
 RUN npm ci
+
+COPY . .
+
+ENV PORT=8080
 
 # Verify sharp installation
 RUN npm run sharp:verify
 
-# Copy source code
-COPY . .
-
-# Production stage
-FROM node:18-slim
-
-# Install runtime dependencies for sharp
-RUN apt-get update && apt-get install -y \
-    libvips \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Copy built node_modules from builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app ./
-
-# Railway injects PORT at runtime; the app listens on 0.0.0.0:$PORT.
-
-# Start command
 CMD ["npm", "start"]
