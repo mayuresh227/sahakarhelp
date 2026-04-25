@@ -126,6 +126,23 @@ Our server.js includes debug logs:
 
 Check Railway logs for these messages.
 
+### Sharp Native Module Support
+Sharp is used for image processing. To ensure it loads correctly in Railway:
+
+1. **Libvips Dependency**: The Dockerfile includes `libvips` runtime dependency. If using Nixpacks (default), ensure libvips is installed by adding `apt-get install libvips` in a custom build command.
+
+2. **Postinstall Rebuild**: The package.json includes a `postinstall` script that runs `npm run sharp:verify`. This verifies sharp loads correctly. If sharp fails, the build will fail.
+
+3. **Verification**:
+   - After deployment, run `npm run sharp:verify` in the backend service shell.
+   - Check logs for "Sharp version:" message.
+   - Test the image tools endpoint (e.g., `/api/tools/image-compressor`) with a sample image.
+
+4. **Troubleshooting**:
+   - If sharp fails with "libvips" error, ensure the system has libvips installed (use Dockerfile).
+   - If sharp fails due to missing native module, run `npm rebuild sharp` manually.
+   - Ensure Node.js version matches sharp's prebuilt binaries (Node 18+).
+
 ## Production Recommendations
 
 1. **Enable Auto-Deploy** from main branch

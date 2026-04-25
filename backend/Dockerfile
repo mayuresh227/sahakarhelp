@@ -5,11 +5,12 @@ FROM node:18-slim AS builder
 # Build argument to force cache invalidation on each deployment
 ARG CACHE_BUST=1
 
-# Install dependencies for native modules (sharp)
+# Install dependencies for native modules (sharp) including libvips
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
     g++ \
+    libvips-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -21,15 +22,18 @@ COPY package*.json ./
 # Install all dependencies (including dev dependencies for building)
 RUN npm ci
 
+# Verify sharp installation
+RUN npm run sharp:verify
+
 # Copy source code
 COPY . .
 
 # Production stage
 FROM node:18-slim
 
-# Install runtime dependencies for sharp (optional)
+# Install runtime dependencies for sharp
 RUN apt-get update && apt-get install -y \
-    libvips-dev \
+    libvips \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

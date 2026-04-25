@@ -1,50 +1,24 @@
 const ToolRegistry = require('./services/ToolRegistry');
 const ToolMetadata = require('./models/ToolMetadata');
 
-// Initialize engines with error handling
-let CalculatorEngine, PDFEngine, DocumentEngine, ImageEngine;
-try {
-    CalculatorEngine = require('./engines/CalculatorEngine');
-} catch (err) {
-    console.warn('CalculatorEngine failed to load:', err.message);
-    CalculatorEngine = null;
-}
-try {
-    PDFEngine = require('./engines/PDFEngine');
-} catch (err) {
-    console.warn('PDFEngine failed to load:', err.message);
-    PDFEngine = null;
-}
-try {
-    DocumentEngine = require('./engines/DocumentEngine');
-} catch (err) {
-    console.warn('DocumentEngine failed to load:', err.message);
-    DocumentEngine = null;
-}
-try {
-    ImageEngine = require('./engines/ImageEngine');
-} catch (err) {
-    console.warn('ImageEngine failed to load:', err.message);
-    ImageEngine = null;
-}
+// Initialize engines - fail fast if any engine fails to load
+const CalculatorEngine = require('./engines/CalculatorEngine');
+const PDFEngine = require('./engines/PDFEngine');
+const DocumentEngine = require('./engines/DocumentEngine');
+const ImageEngine = require('./engines/ImageEngine');
 
-// Initialize engines
-if (CalculatorEngine) {
-    const calculatorEngine = new CalculatorEngine();
-    ToolRegistry.registerEngine('calculator', calculatorEngine);
-}
-if (PDFEngine) {
-    const pdfEngine = new PDFEngine();
-    ToolRegistry.registerEngine('pdf', pdfEngine);
-}
-if (DocumentEngine) {
-    const documentEngine = new DocumentEngine();
-    ToolRegistry.registerEngine('document', documentEngine);
-}
-if (ImageEngine) {
-    const imageEngine = new ImageEngine();
-    ToolRegistry.registerEngine('image', imageEngine);
-}
+// Register engines
+const calculatorEngine = new CalculatorEngine();
+ToolRegistry.registerEngine('calculator', calculatorEngine);
+
+const pdfEngine = new PDFEngine();
+ToolRegistry.registerEngine('pdf', pdfEngine);
+
+const documentEngine = new DocumentEngine();
+ToolRegistry.registerEngine('document', documentEngine);
+
+const imageEngine = new ImageEngine();
+ToolRegistry.registerEngine('image', imageEngine);
 
 // Register fallback tools (always available)
 const registerFallbackTools = () => {
