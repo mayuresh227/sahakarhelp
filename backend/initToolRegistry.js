@@ -1,8 +1,12 @@
 const ToolRegistry = require('./services/ToolRegistry');
+const ToolExecutor = require('./services/ToolExecutor');
 const ToolMetadata = require('./models/ToolMetadata');
 
-// Initialize engines - fail fast if any engine fails to load
+// ====================
+// Load Engines
+// ====================
 console.log('Loading engines...');
+
 console.log('Loading CalculatorEngine...');
 const CalculatorEngine = require('./engines/CalculatorEngine');
 console.log('CalculatorEngine loaded');
@@ -19,38 +23,143 @@ console.log('Loading ImageEngine...');
 const ImageEngine = require('./engines/ImageEngine');
 console.log('ImageEngine loaded');
 
-// Register engines
-console.log('Registering engines...');
+console.log('Loading PACSEKYCEngine...');
+const PACSEKYCEngine = require('./engines/PACSEKYCEngine');
+console.log('PACSEKYCEngine loaded');
+
+// ====================
+// Register Engines with ToolExecutor
+// ====================
+console.log('Registering engines with ToolExecutor...');
+
 const calculatorEngine = new CalculatorEngine();
-ToolRegistry.registerEngine('calculator', calculatorEngine);
+ToolExecutor.registerEngine('calculator', calculatorEngine);
 console.log('Calculator engine registered');
 
 const pdfEngine = new PDFEngine();
-ToolRegistry.registerEngine('pdf', pdfEngine);
+ToolExecutor.registerEngine('pdf', pdfEngine);
 console.log('PDF engine registered');
 
 const documentEngine = new DocumentEngine();
-ToolRegistry.registerEngine('document', documentEngine);
+ToolExecutor.registerEngine('document', documentEngine);
 console.log('Document engine registered');
 
 const imageEngine = new ImageEngine();
-ToolRegistry.registerEngine('image', imageEngine);
+ToolExecutor.registerEngine('image', imageEngine);
 console.log('Image engine registered');
 
-// Register fallback tools (always available)
+const pacsEkycEngine = new PACSEKYCEngine();
+ToolExecutor.registerEngine('pacs_ekyc', pacsEkycEngine);
+console.log('PACSEKYC engine registered');
+
+// ====================
+// Register Fallback Tools (with versions)
+// ====================
 const registerFallbackTools = () => {
   const fallbackTools = [
+    // EMI Calculator v1
     {
-      slug: 'calculator',
-      name: 'Calculator',
-      categories: ['calculator-tools'],
-      engineType: 'calculator',
+      slug: 'emi_calculator',
+      name: 'EMI Calculator',
+      type: 'calculator',
+      version: 'v1',
+      categories: ['calculator-tools', 'financial'],
+      description: 'Calculate EMI for loans with principal, interest rate, and tenure',
       config: {
         inputs: [
-          { name: 'expression', type: 'text', label: 'Expression', required: true }
+          { name: 'principal', type: 'number', label: 'Loan Amount', required: true },
+          { name: 'rate', type: 'number', label: 'Interest Rate (%)', required: true },
+          { name: 'tenure', type: 'number', label: 'Tenure (months)', required: true },
+          { name: 'processingFee', type: 'number', label: 'Processing Fee', required: false },
+          { name: 'prePaymentAmount', type: 'number', label: 'Pre-payment Amount', required: false }
         ],
         outputs: [
-          { name: 'result', label: 'Result', format: 'number' }
+          { name: 'emi', label: 'EMI', format: 'currency' },
+          { name: 'totalPayment', label: 'Total Payment', format: 'currency' },
+          { name: 'totalInterest', label: 'Total Interest', format: 'currency' },
+          { name: 'amortization', label: 'Amortization Schedule', format: 'table' }
+        ]
+      },
+      active: true,
+      requiresAuth: false,
+      requiredPlan: 'free',
+      requiredRole: 'user',
+      dailyLimitFree: 50
+    },
+    // EMI Calculator v2 (hypothetical future version)
+    {
+      slug: 'emi_calculator',
+      name: 'EMI Calculator v2',
+      type: 'calculator',
+      version: 'v2',
+      categories: ['calculator-tools', 'financial'],
+      description: 'Enhanced EMI Calculator with advanced features',
+      config: {
+        inputs: [
+          { name: 'principal', type: 'number', label: 'Loan Amount', required: true },
+          { name: 'rate', type: 'number', label: 'Interest Rate (%)', required: true },
+          { name: 'tenure', type: 'number', label: 'Tenure (months)', required: true },
+          { name: 'processingFee', type: 'number', label: 'Processing Fee', required: false },
+          { name: 'prePaymentAmount', type: 'number', label: 'Pre-payment Amount', required: false },
+          { name: 'tenureType', type: 'select', label: 'Tenure Type', options: ['months', 'years'], required: false }
+        ],
+        outputs: [
+          { name: 'emi', label: 'EMI', format: 'currency' },
+          { name: 'totalPayment', label: 'Total Payment', format: 'currency' },
+          { name: 'totalInterest', label: 'Total Interest', format: 'currency' },
+          { name: 'totalCost', label: 'Total Cost', format: 'currency' },
+          { name: 'amortization', label: 'Amortization Schedule', format: 'table' }
+        ]
+      },
+      active: true,
+      requiresAuth: false,
+      requiredPlan: 'pro',
+      requiredRole: 'user',
+      dailyLimitFree: null
+    },
+    // Satbara Helper v1
+    {
+      slug: 'satbara_helper',
+      name: 'Satbara 7/12 Helper',
+      type: 'calculator',
+      version: 'v1',
+      categories: ['land-records', 'maharashtra'],
+      description: 'Guidance for accessing Maharashtra land records (7/12 extract)',
+      config: {
+        inputs: [
+          { name: 'district', type: 'text', label: 'District', required: true },
+          { name: 'taluka', type: 'text', label: 'Taluka', required: true },
+          { name: 'village', type: 'text', label: 'Village', required: true },
+          { name: 'surveyNumber', type: 'text', label: 'Survey Number', required: true },
+          { name: 'groupNumber', type: 'text', label: 'Group Number (optional)', required: false },
+          { name: 'ownerName', type: 'text', label: 'Owner Name (optional)', required: false }
+        ],
+        outputs: [
+          { name: 'validation', label: 'Validation', format: 'object' },
+          { name: 'guidance', label: 'Step-by-step Guidance', format: 'array' },
+          { name: 'help', label: 'Help Information', format: 'object' }
+        ]
+      },
+      active: true,
+      requiresAuth: false,
+      requiredPlan: 'free',
+      requiredRole: 'user',
+      dailyLimitFree: 20
+    },
+    // PDF Merge v1
+    {
+      slug: 'pdf_merge',
+      name: 'PDF Merge',
+      type: 'pdf',
+      version: 'v1',
+      categories: ['pdf-tools'],
+      description: 'Merge multiple PDF files into one',
+      config: {
+        inputs: [
+          { name: 'files', type: 'file', label: 'PDF Files', required: true, multiple: true, accept: '.pdf' }
+        ],
+        outputs: [
+          { name: 'result', label: 'Merged PDF', format: 'pdf' }
         ]
       },
       active: true,
@@ -59,21 +168,18 @@ const registerFallbackTools = () => {
       requiredRole: 'user',
       dailyLimitFree: 5
     },
+    // PDF Compress v1
     {
-      slug: 'pdf-compressor',
+      slug: 'pdf_compress',
       name: 'PDF Compressor',
+      type: 'pdf',
+      version: 'v1',
       categories: ['pdf-tools'],
-      engineType: 'pdf',
+      description: 'Compress PDF files to reduce size',
       config: {
         inputs: [
-          { name: 'file', type: 'file', label: 'PDF File', required: true },
-          {
-            name: 'compressionLevel',
-            type: 'select',
-            label: 'Compression Level',
-            options: ['low', 'medium', 'high'],
-            default: 'medium'
-          }
+          { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
+          { name: 'compressionLevel', type: 'select', label: 'Compression Level', options: ['low', 'medium', 'high'], default: 'medium' }
         ],
         outputs: [
           { name: 'result', label: 'Compressed PDF', format: 'pdf' }
@@ -84,501 +190,117 @@ const registerFallbackTools = () => {
       requiredPlan: 'free',
       requiredRole: 'user',
       dailyLimitFree: 3
-    }
-  ];
-  fallbackTools.forEach(tool => ToolRegistry.registerTool(tool));
+      },
+      // PACS eKYC Tool v1
+      {
+      slug: 'pacs_ekyc_tool',
+      name: 'PACS eKYC Tool',
+      type: 'pacs_ekyc',
+      version: 'v1',
+      categories: ['kyc-tools', 'pacs', 'compliance'],
+      description: 'Process and compress PACS eKYC documents into a single PDF under 250KB',
+      config: {
+      inputs: [
+      { name: 'ekycForm', type: 'file', label: 'eKYC Form', required: true, acceptedTypes: ['application/pdf', 'image/jpeg', 'image/png'] },
+      { name: 'aadhaarCard', type: 'file', label: 'Aadhaar Card', required: true, acceptedTypes: ['image/jpeg', 'image/png', 'application/pdf'] },
+      { name: 'identityProof', type: 'file', label: 'Identity Proof', required: false, acceptedTypes: ['image/jpeg', 'image/png', 'application/pdf'] }
+      ],
+      outputs: [
+      { name: 'fileUrl', label: 'File URL', format: 'string' },
+      { name: 'fileSizeKB', label: 'File Size (KB)', format: 'number' },
+      { name: 'success', label: 'Success', format: 'boolean' }
+      ]
+      },
+      active: true,
+      requiresAuth: false,
+      requiredPlan: 'free',
+      requiredRole: 'user',
+      dailyLimitFree: 10
+      }
+      ];
+
+  fallbackTools.forEach(tool => {
+    ToolRegistry.registerTool(tool);
+  });
+
   console.log(`Registered ${fallbackTools.length} fallback tools`);
 };
-registerFallbackTools();
 
-// Seed new tools
-const seedNewTools = async () => {
+// ====================
+// Load Tools from Database
+// ====================
+const loadToolsFromDatabase = async () => {
   try {
-    const toolsToCreate = [
-      {
-        slug: 'image-to-pdf',
-        name: 'Image to PDF Converter',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'images', type: 'file', label: 'Images', required: true, multiple: true },
-            { name: 'pageSize', type: 'select', label: 'Page Size', options: ['A4', 'Letter'], default: 'A4' },
-            { name: 'orientation', type: 'select', label: 'Orientation', options: ['portrait', 'landscape'], default: 'portrait' }
-          ],
-          outputs: [
-            { name: 'result', label: 'PDF File', format: 'pdf' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-compressor',
-        name: 'PDF Compressor',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true },
-            { name: 'compressionLevel', type: 'select', label: 'Compression Level', options: ['low', 'medium', 'high'], default: 'medium' }
-          ],
-          outputs: [
-            { name: 'result', label: 'Compressed PDF', format: 'pdf' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-to-image',
-        name: 'PDF to Image Converter',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true },
-            { name: 'format', type: 'select', label: 'Output Format', options: ['jpg', 'png'], default: 'jpg' },
-            { name: 'quality', type: 'number', label: 'Quality (1-100)', min: 1, max: 100 }
-          ],
-          outputs: [
-            { name: 'result', label: 'Converted Images', format: 'zip' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'image-compressor',
-        name: 'Image Compressor',
-        categories: ['image-tools'],
-        engineType: 'image',
-        config: {
-          inputs: [
-            { name: 'image', type: 'file', label: 'Image', required: true },
-            { name: 'quality', type: 'number', label: 'Quality (1-100)', min: 1, max: 100 }
-          ],
-          outputs: [
-            { name: 'result', label: 'Compressed Image', format: 'jpg' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'image-resizer',
-        name: 'Image Resizer',
-        categories: ['image-tools'],
-        engineType: 'image',
-        config: {
-          inputs: [
-            { name: 'image', type: 'file', label: 'Image', required: true },
-            { name: 'width', type: 'number', label: 'Width', required: true },
-            { name: 'height', type: 'number', label: 'Height', required: true }
-          ],
-          outputs: [
-            { name: 'result', label: 'Resized Image', format: 'jpg' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'image-cropper',
-        name: 'Image Cropper',
-        categories: ['image-tools'],
-        engineType: 'image',
-        requiresAuth: false,
-        config: {
-          inputs: [
-            { name: 'image', type: 'file', label: 'Image', required: true, accept: 'image/jpeg,image/png,image/webp' },
-            {
-              name: 'cropType',
-              type: 'select',
-              label: 'Crop Type',
-              options: ['custom', 'square', 'circle'],
-              default: 'custom'
-            },
-            { name: 'width', type: 'number', label: 'Width (pixels)', required: false, min: 1 },
-            { name: 'height', type: 'number', label: 'Height (pixels)', required: false, min: 1 },
-            { name: 'x', type: 'number', label: 'X Position (pixels)', required: false, min: 0 },
-            { name: 'y', type: 'number', label: 'Y Position (pixels)', required: false, min: 0 }
-          ],
-          outputs: [
-            { name: 'result', label: 'Cropped Image', format: 'jpg' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-merge',
-        name: 'PDF Merge',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'files', type: 'file', label: 'PDF Files', required: true, multiple: true, accept: '.pdf' }
-          ],
-          outputs: [
-            { name: 'result', label: 'Merged PDF', format: 'pdf' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-split',
-        name: 'PDF Split',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
-            { name: 'pageRanges', type: 'text', label: 'Page Ranges (e.g., 1-3,5,7-9)', required: true, placeholder: '1-3,5,7-9' }
-          ],
-          outputs: [
-            { name: 'result', label: 'Split PDFs', format: 'zip' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-rotate',
-        name: 'PDF Rotate',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
-            { name: 'angle', type: 'select', label: 'Rotation Angle', options: ['90', '180', '270'], default: '90' },
-            { name: 'pageNumbers', type: 'text', label: 'Page Numbers (e.g., 1,3,5 or "all")', placeholder: 'all or 1,3,5' }
-          ],
-          outputs: [
-            { name: 'result', label: 'Rotated PDF', format: 'pdf' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-protect',
-        name: 'PDF Protect',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
-            { name: 'password', type: 'password', label: 'Password', required: true }
-          ],
-          outputs: [
-            { name: 'result', label: 'Protected PDF', format: 'pdf' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-unlock',
-        name: 'PDF Unlock',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
-            { name: 'password', type: 'password', label: 'Password', required: true }
-          ],
-          outputs: [
-            { name: 'result', label: 'Unlocked PDF', format: 'pdf' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-watermark',
-        name: 'PDF Watermark',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
-            { name: 'watermarkText', type: 'text', label: 'Watermark Text (optional)', required: false },
-            { name: 'watermarkImage', type: 'file', label: 'Watermark Image (optional)', required: false, accept: 'image/*' },
-            { name: 'position', type: 'select', label: 'Position', options: ['center', 'top-left', 'top-right', 'bottom-left', 'bottom-right'], default: 'center' },
-            { name: 'opacity', type: 'number', label: 'Opacity (0.1 to 1.0)', min: 0.1, max: 1.0, step: 0.1, default: 0.3 }
-          ],
-          outputs: [
-            { name: 'result', label: 'Watermarked PDF', format: 'pdf' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'page-reorder',
-        name: 'Page Reorder',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
-            { name: 'pageOrder', type: 'text', label: 'Page Order (e.g., 3,1,2)', required: true, placeholder: '3,1,2' }
-          ],
-          outputs: [
-            { name: 'result', label: 'Reordered PDF', format: 'pdf' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'extract-pages',
-        name: 'Extract Pages',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
-            { name: 'pageNumbers', type: 'text', label: 'Page Numbers to Extract (e.g., 1,3,5)', required: true }
-          ],
-          outputs: [
-            { name: 'result', label: 'Extracted PDF', format: 'pdf' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'delete-pages',
-        name: 'Delete Pages',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
-            { name: 'pageNumbers', type: 'text', label: 'Page Numbers to Delete (e.g., 2,4)', required: true }
-          ],
-          outputs: [
-            { name: 'result', label: 'Modified PDF', format: 'pdf' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'add-page-numbers',
-        name: 'Add Page Numbers',
-        categories: ['pdf-tools'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
-            { name: 'position', type: 'select', label: 'Position', options: ['bottom-center', 'bottom-left', 'bottom-right', 'top-center', 'top-left', 'top-right'], default: 'bottom-center' },
-            { name: 'format', type: 'text', label: 'Format (use {page} and {total})', placeholder: '{page} of {total}', default: '{page} of {total}' }
-          ],
-          outputs: [
-            { name: 'result', label: 'Numbered PDF', format: 'pdf' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-metadata',
-        name: 'PDF Metadata Editor',
-        categories: ['pdf-tools', 'premium'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
-            { name: 'metadata.title', type: 'text', label: 'Title', required: false },
-            { name: 'metadata.author', type: 'text', label: 'Author', required: false },
-            { name: 'metadata.subject', type: 'text', label: 'Subject', required: false },
-            { name: 'metadata.keywords', type: 'text', label: 'Keywords (comma-separated)', required: false },
-            { name: 'metadata.creator', type: 'text', label: 'Creator', required: false },
-            { name: 'metadata.producer', type: 'text', label: 'Producer', required: false }
-          ],
-          outputs: [
-            { name: 'result', label: 'PDF with updated metadata', format: 'pdf' },
-            { name: 'metadata', label: 'Updated metadata', format: 'json' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-remove-duplicates',
-        name: 'Remove Duplicate Pages',
-        categories: ['pdf-tools', 'premium'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' }
-          ],
-          outputs: [
-            { name: 'result', label: 'PDF without duplicates', format: 'pdf' },
-            { name: 'removed', label: 'Number of pages removed', format: 'json' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-size-estimator',
-        name: 'PDF Size Estimator',
-        categories: ['pdf-tools', 'premium'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
-            { name: 'options.compressionLevel', type: 'select', label: 'Compression Level', options: ['low', 'medium', 'high'], default: 'medium' }
-          ],
-          outputs: [
-            { name: 'estimation', label: 'Size estimation report', format: 'json' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-batch-processing',
-        name: 'PDF Batch Processing',
-        categories: ['pdf-tools', 'premium'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'files', type: 'file', label: 'PDF Files', required: true, multiple: true, accept: '.pdf' },
-            { name: 'operation', type: 'select', label: 'Operation', options: ['compress', 'rotate', 'protect'], default: 'compress' },
-            { name: 'options.compressionLevel', type: 'select', label: 'Compression Level', options: ['low', 'medium', 'high'], default: 'medium', dependsOn: { operation: 'compress' } },
-            { name: 'options.angle', type: 'select', label: 'Rotation Angle', options: ['90', '180', '270'], default: '90', dependsOn: { operation: 'rotate' } },
-            { name: 'options.password', type: 'password', label: 'Password', dependsOn: { operation: 'protect' } }
-          ],
-          outputs: [
-            { name: 'result', label: 'ZIP file with processed PDFs', format: 'zip' },
-            { name: 'summary', label: 'Processing summary', format: 'json' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-thumbnail-preview',
-        name: 'PDF Thumbnail Preview',
-        categories: ['pdf-tools', 'premium'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' },
-            { name: 'count', type: 'number', label: 'Number of thumbnails', min: 1, max: 20, default: 5 }
-          ],
-          outputs: [
-            { name: 'thumbnails', label: 'Page thumbnails', format: 'json' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'pdf-preview-before-download',
-        name: 'PDF Preview',
-        categories: ['pdf-tools', 'premium'],
-        engineType: 'pdf',
-        config: {
-          inputs: [
-            { name: 'file', type: 'file', label: 'PDF File', required: true, accept: '.pdf' }
-          ],
-          outputs: [
-            { name: 'result', label: 'First page preview image', format: 'jpg' },
-            { name: 'preview', label: 'Document information', format: 'json' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'gst-invoice-generator',
-        name: 'GST Invoice Generator',
-        categories: ['document-tools'],
-        engineType: 'document',
-        requiresAuth: true,
-        config: {
-          inputs: [
-            // Seller Details
-            { name: 'businessName', type: 'text', label: 'Business Name', required: true },
-            { name: 'businessAddress', type: 'textarea', label: 'Business Address', required: true },
-            { name: 'gstNumber', type: 'text', label: 'GST Number', required: true },
-            { name: 'phone', type: 'text', label: 'Phone', required: false },
-            { name: 'email', type: 'text', label: 'Email', required: false },
-            // Customer Details
-            { name: 'customerName', type: 'text', label: 'Customer Name', required: true },
-            { name: 'customerAddress', type: 'textarea', label: 'Customer Address', required: true },
-            { name: 'customerGST', type: 'text', label: 'Customer GST (Optional)', required: false },
-            // Invoice Info
-            { name: 'invoiceNumber', type: 'text', label: 'Invoice Number', required: true },
-            { name: 'invoiceDate', type: 'date', label: 'Invoice Date', required: true },
-            // Items (dynamic array)
-            {
-              name: 'items',
-              type: 'array',
-              label: 'Items',
-              fields: [
-                { name: 'itemName', type: 'text', label: 'Item Name', required: true },
-                { name: 'quantity', type: 'number', label: 'Quantity', required: true, min: 1 },
-                { name: 'price', type: 'number', label: 'Price per unit', required: true, min: 0 },
-                { name: 'taxRate', type: 'number', label: 'Tax Rate (%)', required: true, min: 0, max: 100 }
-              ]
-            },
-            // Extra Fields
-            { name: 'discount', type: 'number', label: 'Discount Amount', required: false, min: 0 },
-            { name: 'shipping', type: 'number', label: 'Shipping Charges', required: false, min: 0 },
-            // Branding
-            { name: 'logo', type: 'file', label: 'Logo (Optional)', required: false },
-            { name: 'signature', type: 'file', label: 'Signature (Optional)', required: false }
-          ],
-          outputs: [
-            { name: 'invoicePdf', label: 'Invoice PDF', format: 'pdf' },
-            { name: 'invoiceData', label: 'Invoice Data', format: 'json' }
-          ]
-        },
-        active: true
-      },
-      {
-        slug: 'satbara-helper',
-        name: '7/12 (Satbara) Helper',
-        categories: ['land-tools'],
-        engineType: 'calculator',
-        requiresAuth: false,
-        config: {
-          inputs: [
-            { name: 'district', type: 'text', label: 'District', required: true },
-            { name: 'taluka', type: 'text', label: 'Taluka', required: true },
-            { name: 'village', type: 'text', label: 'Village', required: true },
-            { name: 'surveyNumber', type: 'text', label: 'Survey Number', required: true },
-            { name: 'groupNumber', type: 'text', label: 'Group Number (Optional)', required: false },
-            { name: 'ownerName', type: 'text', label: 'Owner Name (Optional)', required: false }
-          ],
-          outputs: [
-            { name: 'validation', label: 'Validation Results', format: 'json' },
-            { name: 'guidance', label: 'Step-by-Step Guidance', format: 'json' },
-            { name: 'help', label: 'Smart Help', format: 'json' },
-            { name: 'errorHelp', label: 'Error Helper', format: 'json' }
-          ]
-        },
-        active: true
-      }
-    ];
-    
-    for (const toolData of toolsToCreate) {
-      const existingTool = await ToolMetadata.findOne({ slug: toolData.slug });
-      if (!existingTool) {
-        const tool = new ToolMetadata(toolData);
-        await tool.save();
-        ToolRegistry.registerTool(tool);
-        console.log(`Created new tool: ${toolData.name}`);
-      }
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      console.log('MongoDB not connected, skipping database tool load');
+      return;
+    }
+
+    const dbTools = await ToolMetadata.find({ active: true }).lean().maxTimeMS(5000);
+
+    if (dbTools && dbTools.length > 0) {
+      dbTools.forEach(tool => {
+        const toolConfig = {
+          slug: tool.slug,
+          type: tool.engineType,
+          version: tool.version || 'v1',
+          name: tool.name,
+          description: tool.description || '',
+          categories: tool.categories || [],
+          config: tool.config || { inputs: [], outputs: [] },
+          active: tool.active !== false,
+          requiresAuth: Boolean(tool.requiresAuth),
+          requiredPlan: tool.requiredPlan || 'free',
+          requiredRole: tool.requiredRole || 'user',
+          dailyLimitFree: tool.dailyLimitFree || null
+        };
+
+        ToolRegistry.registerTool(toolConfig);
+      });
+      console.log(`Loaded ${dbTools.length} tools from database`);
+    } else {
+      console.log('No active tools found in database');
     }
   } catch (error) {
-    console.error('Failed to seed new tools:', error);
+    console.error('Error loading tools from database:', error.message);
   }
 };
 
-// Load tools from database
-const loadTools = async () => {
-  try {
-    const tools = await ToolMetadata.find({ active: true });
-    tools.forEach(tool => ToolRegistry.registerTool(tool));
-    console.log(`Loaded ${tools.length} tools from database`);
-    
-    // Seed new tools after initial load
-    await seedNewTools();
-  } catch (error) {
-    console.error('Failed to load tools from database:', error);
-  }
+// ====================
+// Initialize
+// ====================
+const initialize = async () => {
+  console.log('Initializing tool registry...');
+  
+  // Register fallback tools first
+  registerFallbackTools();
+  
+  // Then try to load from database
+  await loadToolsFromDatabase();
+
+  console.log(`Tool registry initialized with ${ToolRegistry.count} tool versions (${ToolRegistry.uniqueCount} unique tools)`);
+  console.log(`Tool executor has ${ToolExecutor.getRegisteredEngines().length} engines registered`);
+
+  // Log registered tools
+  const tools = ToolRegistry.listTools({ latestOnly: true });
+  console.log('Registered tools:', tools.map(t => `${t.slug}:${t.version}`).join(', '));
+
+  return { ToolRegistry, ToolExecutor };
 };
 
-// Initialize tool registry
-loadTools().catch(err => {
-  console.error('Failed to load tools:', err);
-});
+// Export for use
+module.exports = { ToolRegistry, ToolExecutor, initialize };
 
-module.exports = ToolRegistry;
+// Auto-initialize on first import (sync fallback tools, async for DB)
+let initPromise = null;
+
+const ensureInitialized = () => {
+  if (!initPromise) {
+    initPromise = initialize();
+  }
+  return initPromise;
+};
+
+// Auto-initialize
+ensureInitialized();

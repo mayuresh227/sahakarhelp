@@ -5,6 +5,11 @@ const compression = require('compression');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 
+// Rate limiter
+const { globalLimiter } = require('./middleware/rateLimiter');
+// Request ID middleware
+const { requestIdMiddleware } = require('./middleware/requestId');
+
 // Route imports
 const toolsRouter = require('./routes/tools');
 const userRouter = require('./routes/user');
@@ -12,12 +17,19 @@ const adminRouter = require('./routes/admin');
 const analyticsRouter = require('./routes/analytics');
 const invoiceRouter = require('./routes/invoiceRoutes');
 const paymentRouter = require('./routes/payment');
+const jobsRouter = require('./routes/jobs');
+const pacsEKYCDownloadRouter = require('./routes/pacsEKYCDownload');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 console.log(`Server starting on port ${PORT}`);
 
 console.log("🚀 Starting server with all routes...");
+
+// ====================
+// Trust Proxy (for correct IP behind reverse proxy)
+// ====================
+app.set('trust proxy', 1);
 
 // ====================
 // MongoDB Connection
@@ -34,7 +46,7 @@ mongoose.connect(MONGODB_URI, {
 }).catch(err => {
   console.error('❌ MongoDB connection error:', err.message);
   // Do not crash the server; allow it to start but tools will fail
-  console.log('⚠️  Server will start without database connection. Some features may be unavailable.');
+  console.log('⚠️ Server will start without database connection. Some features may be unavailable.');
 });
 
 // Set global mongoose settings
@@ -47,6 +59,16 @@ app.use(helmet());
 app.use(cors());
 app.use(compression());
 app.use(bodyParser.json({ limit: '10mb' }));
+
+// ====================
+// Request ID Middleware (must be before routes)
+// ====================
+app.use(requestIdMiddleware);
+
+// ====================
+// Global Rate Limiter
+// ====================
+app.use(globalLimiter);
 
 
 // ====================
@@ -82,6 +104,8 @@ app.use('/api/admin', adminRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/invoice', invoiceRouter);
 app.use('/api/payment', paymentRouter);
+app.use('/api/jobs', jobsRouter);
+app.use('/api/pacs-ekyc', pacsEKYCDownloadRouter);
 
 // ====================
 // Error handling
