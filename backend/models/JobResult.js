@@ -34,18 +34,10 @@ const jobResultSchema = new mongoose.Schema({
     default: 'processing',
     index: true,
   },
-  // Full standardized response: { success, data, meta }
+  // Full standardized response: { success, data, meta, error?, message? }
   result: {
-    success: { type: Boolean, default: null },
-    data: { type: mongoose.Schema.Types.Mixed, default: null },
-    meta: {
-      tool: { type: String, default: null },
-      version: { type: String, default: null },
-      contractVersion: { type: String, default: 'v1' },
-      executionTimeMs: { type: Number, default: null },
-      requestId: { type: String, default: null },
-      deprecation: { type: mongoose.Schema.Types.Mixed, default: null }
-    }
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
   },
   error: {
     message: { type: String, default: null },

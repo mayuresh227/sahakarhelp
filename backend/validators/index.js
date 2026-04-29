@@ -2,6 +2,11 @@ const { z } = require('zod');
 const { emiCalculatorSchema } = require('./schemas');
 const { gstInvoiceSchema } = require('./gstInvoice');
 
+const uploadedFileSchema = z.object({
+  buffer: z.any().refine(Buffer.isBuffer, 'File buffer is required'),
+  mimetype: z.string().min(1, 'File mimetype is required')
+}).passthrough();
+
 // ====================
 // Version-Aware Tool Schema Registry
 // Format: `${slug}:${version}` -> ZodSchema
@@ -9,6 +14,33 @@ const { gstInvoiceSchema } = require('./gstInvoice');
 const toolSchemas = {
   // EMI Calculator versions
   'emi_calculator:v1': emiCalculatorSchema,
+
+  // Land record helper
+  'satbara_helper:v1': z.object({
+    district: z.string().min(1, 'District is required'),
+    taluka: z.string().min(1, 'Taluka is required'),
+    village: z.string().min(1, 'Village is required'),
+    surveyNumber: z.string().min(1, 'Survey number is required'),
+    groupNumber: z.string().optional(),
+    ownerName: z.string().optional()
+  }).strict(),
+
+  // PDF tools
+  'pdf_merge:v1': z.object({
+    files: z.array(uploadedFileSchema).min(1, 'At least one PDF file is required')
+  }).strict(),
+
+  'pdf_compress:v1': z.object({
+    file: uploadedFileSchema,
+    compressionLevel: z.enum(['low', 'medium', 'high']).optional().default('medium')
+  }).strict(),
+
+  // PACS eKYC file tool
+  'pacs_ekyc_tool:v1': z.object({
+    ekycForm: uploadedFileSchema,
+    aadhaarCard: uploadedFileSchema,
+    identityProof: uploadedFileSchema.optional()
+  }).strict(),
   
   // GST Invoice Generator versions
   'gst_invoice_generator:v1': gstInvoiceSchema
@@ -37,12 +69,10 @@ function validateToolInput(toolKey, input) {
   const version = parts.length > 1 ? parts[1] : null;
 
   if (!version) {
-    // No version in toolKey - cannot validate with versioned schema
-    console.warn(`No version specified in toolKey: ${toolKey}. Skipping schema validation.`);
     return {
-      success: true,
-      data: input,
-      warning: `No version specified, validation skipped for ${toolKey}`
+      success: false,
+      error: 'VERSION_REQUIRED',
+      details: [{ field: 'toolKey', message: `Version required in toolKey: ${toolKey}` }]
     };
   }
 
@@ -50,12 +80,10 @@ function validateToolInput(toolKey, input) {
   const schema = toolSchemas[schemaKey];
 
   if (!schema) {
-    // Schema not found for this version - allow request but log warning
-    console.warn(`No validation schema found for tool version: ${schemaKey}`);
     return {
-      success: true,
-      data: input,
-      warning: `No validation schema defined for ${schemaKey}`
+      success: false,
+      error: 'VALIDATION_SCHEMA_NOT_FOUND',
+      details: [{ field: 'toolKey', message: `No validation schema defined for ${schemaKey}` }]
     };
   }
 
@@ -100,14 +128,18 @@ function validateToolInputStrict(toolKey, input) {
   const version = parts.length > 1 ? parts[1] : null;
 
   if (!version) {
-    return input;
+    throw Object.assign(new Error(`Version required in toolKey: ${toolKey}`), {
+      code: 'VERSION_REQUIRED'
+    });
   }
 
   const schemaKey = getSchemaKey(slug, version);
   const schema = toolSchemas[schemaKey];
   
   if (!schema) {
-    return input;
+    throw Object.assign(new Error(`No validation schema defined for ${schemaKey}`), {
+      code: 'VALIDATION_SCHEMA_NOT_FOUND'
+    });
   }
   
   return schema.parse(input);

@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const multer = require('multer');
+const { randomUUID } = require('crypto');
 const ToolMetadata = require('../models/ToolMetadata');
 const ToolRegistry = require('../services/ToolRegistry');
 const ToolExecutor = require('../services/ToolExecutor');
@@ -13,7 +14,9 @@ const QUERY_TIMEOUT_MS = 5000;
 
 // HTTP Status Codes for Tool API Errors
 const HTTP_STATUS = {
+  VERSION_REQUIRED: 400,
   VALIDATION_FAILED: 400,
+  VALIDATION_SCHEMA_NOT_FOUND: 500,
   TOOL_NOT_FOUND: 404,
   TOOL_DEPRECATED: 410,
   INSUFFICIENT_CREDITS: 403,
@@ -76,6 +79,65 @@ const withTimeout = async (promise, timeoutMs = QUERY_TIMEOUT_MS) => {
   } finally {
     clearTimeout(timeoutId);
   }
+};
+
+const getHeaderValue = (req, name) => {
+  const value = req.headers[name];
+  return Array.isArray(value) ? value[0] : value;
+};
+
+const resolveRequestId = (req, res) => {
+  const legacyTestRequestId = process.env.NODE_ENV === 'test' && req.body?.requestId
+    ? req.body.requestId
+    : null;
+  const requestId = getHeaderValue(req, 'x-request-id') || legacyTestRequestId || randomUUID();
+  req.requestId = requestId;
+  res.setHeader('x-request-id', requestId);
+  return requestId;
+};
+
+const resolveUserId = (req) => {
+  return req.user?.id || getHeaderValue(req, 'x-user-id') || null;
+};
+
+const resolveIdempotencyKey = (req, userId) => {
+  return String(
+    userId ||
+    getHeaderValue(req, 'x-device-id') ||
+    req.clientIp ||
+    req.ip ||
+    'anonymous'
+  );
+};
+
+const getJsonExecutionInput = (req) => {
+  if (req.body && typeof req.body === 'object' && Object.prototype.hasOwnProperty.call(req.body, 'input')) {
+    return req.body.input;
+  }
+  return req.body || {};
+};
+
+const buildToolKey = (tool) => `${tool.slug}:${tool.version}`;
+
+const validationErrorResponse = (res, validation, tool, requestId) => {
+  const errorCode = validation.error || 'VALIDATION_FAILED';
+  return res.status(HTTP_STATUS[errorCode] || HTTP_STATUS.VALIDATION_FAILED).json({
+    success: false,
+    data: null,
+    error: errorCode,
+    message: errorCode === 'VERSION_REQUIRED'
+      ? 'Tool version is required'
+      : errorCode === 'VALIDATION_SCHEMA_NOT_FOUND'
+        ? 'Validation schema is not configured for this tool version'
+        : 'Input validation failed',
+    details: validation.details,
+    meta: {
+      tool: tool.slug,
+      version: tool.version,
+      requestId,
+      contractVersion: 'v1'
+    }
+  });
 };
 
 /**
@@ -224,8 +286,9 @@ router.get('/:toolKey/versions', async (req, res) => {
 // POST /api/tools/:toolKey - Execute tool with version-aware routing
 router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req, res) => {
   const { toolKey } = req.params;
-  const requestId = req.requestId; // From global requestId middleware
-  const userId = req.user?.id || null;
+  let requestId = resolveRequestId(req, res);
+  const userId = resolveUserId(req);
+  const idempotencyKey = resolveIdempotencyKey(req, userId);
 
   // Step 1: Resolve tool with strict version check
   const { tool, error } = resolveTool(toolKey);
@@ -260,6 +323,8 @@ router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req,
         return errorResponse(res, 'FILE_UPLOAD_FAILED', err.message, 400);
       }
 
+      requestId = resolveRequestId(req, res);
+
       let files = req.files || (req.file ? [req.file] : []);
       if (files.length === 0) {
         return errorResponse(res, 'NO_FILES_UPLOADED', `Please upload at least one file for field '${fieldName}'`, 400);
@@ -277,7 +342,8 @@ router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req,
 
       // Build inputs object
       const inputs = { ...req.body };
-      inputs[fieldName] = files;
+      delete inputs.requestId;
+      inputs[fieldName] = isMultiple ? files : files[0];
 
       // Parse options JSON if present
       if (inputs.options && typeof inputs.options === 'string') {
@@ -291,20 +357,9 @@ router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req,
       }
 
       // Validate inputs
-      const validation = validateToolInput(tool.slug, inputs);
+      const validation = validateToolInput(buildToolKey(tool), inputs);
       if (!validation.success) {
-        return res.status(HTTP_STATUS.VALIDATION_FAILED).json({
-          success: false,
-          error: 'VALIDATION_FAILED',
-          message: 'Input validation failed',
-          details: validation.details,
-          meta: {
-            tool: tool.slug,
-            version: tool.version,
-            requestId: req.requestId,
-            contractVersion: 'v1'
-          }
-        });
+        return validationErrorResponse(res, validation, tool, requestId);
       }
 
       // Start execution logging
@@ -313,24 +368,25 @@ router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req,
         userId,
         input: validation.data,
         ipAddress: req.clientIp,
-        userAgent: req.clientUserAgent
+        userAgent: req.clientUserAgent,
+        requestId
       });
 
       try {
         // Execute with new API: { toolKey, input, userId, requestId, options }
         // Use req.idempotencyKey from middleware (userId > x-device-id > clientIp)
-        const result = await ToolExecutor.execute({
-          toolKey,
+        const result = await ToolExecutor.executeAsync({
+          toolKey: buildToolKey(tool),
           input: validation.data,
           userId,
           requestId,
-          options: { idempotencyKey: req.idempotencyKey }
+          options: { idempotencyKey, ipAddress: req.clientIp }
         });
 
-        await executionLogger.logSuccess(logId, result, startTime);
+        await executionLogger.logSuccess(logId, result, startTime, requestId);
         
         // If result contains a buffer, send as file
-        if (result.data?.buffer) {
+        if (result.data?.buffer && !result.meta?.jobId) {
           const outputBuffer = result.data.buffer;
           const fileName = result.data.fileName || `${tool.slug}.pdf`;
           const contentType = result.data.contentType || 'application/pdf';
@@ -343,7 +399,7 @@ router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req,
 
         res.json(result);
       } catch (executionError) {
-        await executionLogger.logError(logId, executionError, startTime);
+        await executionLogger.logError(logId, executionError, startTime, requestId);
 
         if (executionError.code === 'INSUFFICIENT_CREDITS') {
           return res.status(HTTP_STATUS.INSUFFICIENT_CREDITS).json({
@@ -354,7 +410,7 @@ router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req,
             meta: {
               tool: tool.slug,
               version: tool.version,
-              requestId: req.requestId,
+              requestId,
               contractVersion: 'v1'
             }
           });
@@ -364,7 +420,7 @@ router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req,
           return errorResponse(res, 'TOOL_NOT_FOUND', executionError.message, HTTP_STATUS.TOOL_NOT_FOUND, {
             tool: tool.slug,
             version: tool.version,
-            requestId: req.requestId
+            requestId
           });
         }
         
@@ -372,33 +428,23 @@ router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req,
           return errorResponse(res, 'TOOL_DEPRECATED', executionError.message, HTTP_STATUS.TOOL_DEPRECATED, {
             tool: tool.slug,
             version: tool.version,
-            requestId: req.requestId
+            requestId
           });
         }
         
         return errorResponse(res, executionError.code || 'EXECUTION_ERROR', executionError.message, executionError.status || 500, {
           tool: tool.slug,
           version: tool.version,
-          requestId: req.requestId
+          requestId
         });
       }
     });
   } else {
     // Handle JSON body (no file inputs)
-    const validation = validateToolInput(tool.slug, req.body);
+    const executionInput = getJsonExecutionInput(req);
+    const validation = validateToolInput(buildToolKey(tool), executionInput);
     if (!validation.success) {
-      return res.status(HTTP_STATUS.VALIDATION_FAILED).json({
-        success: false,
-        error: 'VALIDATION_FAILED',
-        message: 'Input validation failed',
-        details: validation.details,
-        meta: {
-          tool: tool.slug,
-          version: tool.version,
-          requestId: req.requestId,
-          contractVersion: 'v1'
-        }
-      });
+      return validationErrorResponse(res, validation, tool, requestId);
     }
 
     // Start execution logging
@@ -407,24 +453,25 @@ router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req,
       userId,
       input: validation.data,
       ipAddress: req.clientIp,
-      userAgent: req.clientUserAgent
+      userAgent: req.clientUserAgent,
+      requestId
     });
 
     try {
       // Execute with new API: { toolKey, input, userId, requestId, options }
       // Use req.idempotencyKey from middleware (userId > x-device-id > clientIp)
       const result = await ToolExecutor.execute({
-        toolKey,
+        toolKey: buildToolKey(tool),
         input: validation.data,
         userId,
         requestId,
-        options: { idempotencyKey: req.idempotencyKey }
+        options: { idempotencyKey, ipAddress: req.clientIp }
       });
 
-      await executionLogger.logSuccess(logId, result, startTime);
+      await executionLogger.logSuccess(logId, result, startTime, requestId);
       res.json(result);
     } catch (executionError) {
-      await executionLogger.logError(logId, executionError, startTime);
+      await executionLogger.logError(logId, executionError, startTime, requestId);
 
       if (executionError.code === 'INSUFFICIENT_CREDITS') {
         return res.status(HTTP_STATUS.INSUFFICIENT_CREDITS).json({
@@ -435,7 +482,7 @@ router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req,
           meta: {
             tool: tool.slug,
             version: tool.version,
-            requestId: req.requestId,
+            requestId,
             contractVersion: 'v1'
           }
         });
@@ -445,7 +492,7 @@ router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req,
         return errorResponse(res, 'TOOL_NOT_FOUND', executionError.message, HTTP_STATUS.TOOL_NOT_FOUND, {
           tool: tool.slug,
           version: tool.version,
-          requestId: req.requestId
+          requestId
         });
       }
       
@@ -453,14 +500,14 @@ router.post('/:toolKey', toolExecutionLimiter, queueLimitMiddleware, async (req,
         return errorResponse(res, 'TOOL_DEPRECATED', executionError.message, HTTP_STATUS.TOOL_DEPRECATED, {
           tool: tool.slug,
           version: tool.version,
-          requestId: req.requestId
+          requestId
         });
       }
       
       return errorResponse(res, executionError.code || 'EXECUTION_ERROR', executionError.message, executionError.status || 500, {
         tool: tool.slug,
         version: tool.version,
-        requestId: req.requestId
+        requestId
       });
     }
   }

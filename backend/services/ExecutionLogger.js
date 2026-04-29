@@ -80,6 +80,11 @@ class ExecutionLogger {
   async logStart({ toolSlug, userId, input, ipAddress, userAgent, requestId = null }) {
     const startTime = Date.now();
 
+    if (!requestId) {
+      console.warn('[ExecutionLogger] Missing requestId, skipping execution log');
+      return { logId: null, startTime };
+    }
+
     if (!isDbConnected()) {
       console.warn(`[ExecutionLogger] DB not connected, skipping log${requestId ? ` [${requestId}]` : ''}`);
       return { logId: null, startTime };
@@ -87,25 +92,37 @@ class ExecutionLogger {
 
     try {
       const sanitizedInput = sanitizeInput(input);
+      const logId = new mongoose.Types.ObjectId();
 
-      const logEntry = new ToolExecutionLog({
-        toolSlug,
-        userId: userId || null,
-        input: sanitizedInput,
-        status: 'processing',
-        executionTimeMs: 0,
-        ipAddress: ipAddress || null,
-        userAgent: userAgent || null,
-        requestId: requestId || null
-      });
+      const result = await ToolExecutionLog.collection.updateOne(
+        { requestId },
+        {
+          $setOnInsert: {
+            _id: logId,
+            toolSlug,
+            userId: userId || null,
+            input: sanitizedInput,
+            status: 'processing',
+            executionTimeMs: 0,
+            ipAddress: ipAddress || null,
+            userAgent: userAgent || null,
+            requestId,
+            createdAt: new Date()
+          }
+        },
+        { upsert: true }
+      );
 
-      const savedLog = await logEntry.save();
-      
-      if (requestId) {
-        console.log(`[${requestId}] Execution logged: tool=${toolSlug}, logId=${savedLog._id}`);
+      if (result.upsertedCount === 0) {
+        console.log(`[${requestId}] Execution log already exists, skipping duplicate log start`);
+        return { logId: null, startTime };
       }
       
-      return { logId: savedLog._id.toString(), startTime };
+      if (requestId) {
+        console.log(`[${requestId}] Execution logged: tool=${toolSlug}, logId=${logId}`);
+      }
+      
+      return { logId: logId.toString(), startTime };
     } catch (err) {
       // Logging MUST NOT break tool execution
       console.error(`[ExecutionLogger] Failed to log start${requestId ? ` [${requestId}]` : ''}:`, err.message);
