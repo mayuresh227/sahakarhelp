@@ -100,13 +100,21 @@ class PACSEKYCEngine {
       execSync('which pdftoppm', { stdio: 'pipe' });
       tools.pdftoppm = true;
     } catch (e) {
-      console.error('[PACSEKYCEngine] WARNING: pdftoppm not found. PDF rendering may fail.');
+      if (process.env.NODE_ENV === 'test') {
+        console.warn('[PACSEKYCEngine] WARNING: pdftoppm not found. PDF rendering may fail.');
+      } else {
+        throw new Error('[PACSEKYCEngine] Missing required dependency: pdftoppm');
+      }
     }
     try {
       execSync('which gs', { stdio: 'pipe' });
       tools.ghostscript = true;
     } catch (e) {
-      console.error('[PACSEKYCEngine] WARNING: ghostscript not found. PDF rendering may fail.');
+      if (process.env.NODE_ENV === 'test') {
+        console.warn('[PACSEKYCEngine] WARNING: ghostscript not found. PDF rendering may fail.');
+      } else {
+        throw new Error('[PACSEKYCEngine] Missing required dependency: ghostscript');
+      }
     }
     return tools;
   }

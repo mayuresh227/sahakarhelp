@@ -22,9 +22,11 @@ const pacsEKYCDownloadRouter = require('./routes/pacsEKYCDownload');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-console.log(`Server starting on port ${PORT}`);
 
-console.log("🚀 Starting server with all routes...");
+if (process.env.NODE_ENV !== 'test') {
+  console.log(`Server starting on port ${PORT}`);
+  console.log("🚀 Starting server with all routes...");
+}
 
 // ====================
 // Trust Proxy (for correct IP behind reverse proxy)

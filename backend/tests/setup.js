@@ -1,5 +1,12 @@
 const mongoose = require('mongoose');
 
+// Silence logs in test mode
+if (process.env.NODE_ENV === 'test') {
+  global.console.log = () => {};
+  global.console.warn = () => {};
+  global.console.error = () => {};
+}
+
 const TEST_DB = 'test_sahakarhelp';
 
 beforeAll(async () => {

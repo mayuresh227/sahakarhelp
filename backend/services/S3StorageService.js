@@ -1,6 +1,12 @@
 'use strict';
 
-const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, PutLifecycleConfigurationCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+let PutLifecycleConfigurationCommand;
+try {
+  PutLifecycleConfigurationCommand = require('@aws-sdk/client-s3').PutLifecycleConfigurationCommand;
+} catch (e) {
+  console.warn('[S3StorageService] PutLifecycleConfigurationCommand not available, lifecycle management disabled');
+}
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const SIGNED_URL_EXPIRY_SECONDS = 900;
@@ -39,6 +45,11 @@ class S3StorageService {
 
   async configureLifecycle() {
     if (this.lifecycleConfigured) return;
+    if (!PutLifecycleConfigurationCommand) {
+      console.log('[S3StorageService] Lifecycle management not available, skipping');
+      this.lifecycleConfigured = true;
+      return;
+    }
     try {
       const rule = {
         Rules: [{
