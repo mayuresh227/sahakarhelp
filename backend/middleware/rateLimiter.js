@@ -23,7 +23,10 @@ const globalLimiter = rateLimit({
   keyGenerator: getRateLimitKey,
   skip: (req) => {
     // Skip internal worker calls
-    return req.headers['x-worker-call'] === 'true';
+    if (req.headers['x-worker-call'] === 'true') return true;
+    // Skip rate limiting in test mode
+    if (process.env.NODE_ENV === 'test') return true;
+    return false;
   },
   handler: (req, res) => {
     res.status(429).json({
@@ -46,7 +49,10 @@ const toolExecutionLimiter = rateLimit({
   keyGenerator: getRateLimitKey,
   skip: (req) => {
     // Skip internal worker calls
-    return req.headers['x-worker-call'] === 'true';
+    if (req.headers['x-worker-call'] === 'true') return true;
+    // Skip rate limiting in test mode
+    if (process.env.NODE_ENV === 'test') return true;
+    return false;
   },
   handler: (req, res) => {
     res.status(429).json({
@@ -66,14 +72,8 @@ const toolExecutionLimiter = rateLimit({
  */
 async function checkQueueLimit(userId) {
   try {
-    const [waiting, active] = await Promise.all([
-      toolQueue.getWaitingCount(),
-      toolQueue.getActiveCount()
-    ]);
-
-    // For now, we check global queue stats
-    // In production, you'd use job counters per user
-    const totalActive = waiting + active;
+    const counts = await toolQueue.getJobCounts();
+    const totalActive = counts.waiting + counts.active;
 
     // Simple global limit check
     if (totalActive >= 100) {
@@ -92,17 +92,21 @@ async function checkQueueLimit(userId) {
  * Middleware to check queue limits before adding jobs
  */
 const queueLimitMiddleware = async (req, res, next) => {
-  const identifier = getRateLimitKey(req);
+  // Skip queue limit checks in test mode
+  if (process.env.NODE_ENV === 'test') {
+    return next();
+  }
 
+  const identifier = getRateLimitKey(req);
   const { allowed, activeJobs, reason } = await checkQueueLimit(identifier);
 
   if (!allowed) {
     return res.status(429).json({
       success: false,
+      data: null,
       error: 'Queue limit exceeded',
       message: `Too many jobs in queue. ${reason}. Please wait for existing jobs to complete.`,
-      activeJobs,
-      retryAfter: 60
+      meta: { activeJobs, retryAfter: 60 }
     });
   }
 

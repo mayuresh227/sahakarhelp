@@ -27,7 +27,7 @@ const toolExecutionLogSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['success', 'error'],
+    enum: ["processing", "completed", "failed_execution", "failed_validation", "timeout"],
     required: true,
     index: true
   },

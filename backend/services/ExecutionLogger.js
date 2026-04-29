@@ -92,7 +92,7 @@ class ExecutionLogger {
         toolSlug,
         userId: userId || null,
         input: sanitizedInput,
-        status: 'in_progress',
+        status: 'processing',
         executionTimeMs: 0,
         ipAddress: ipAddress || null,
         userAgent: userAgent || null,
@@ -128,7 +128,7 @@ class ExecutionLogger {
 
     try {
       await ToolExecutionLog.findByIdAndUpdate(logId, {
-        status: 'success',
+        status: 'completed',
         output: output ? sanitizeInput(output) : null,
         executionTimeMs,
         completedAt: new Date()
@@ -159,7 +159,7 @@ class ExecutionLogger {
 
     try {
       await ToolExecutionLog.findByIdAndUpdate(logId, {
-        status: 'error',
+        status: 'failed_execution',
         errorMessage: errorMessage.substring(0, 1000),
         errorCode: errorCode || null,
         executionTimeMs,

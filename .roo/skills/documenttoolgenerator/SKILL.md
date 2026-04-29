@@ -1,13 +1,6 @@
 ---
 name: documenttoolgenerator
-description: When creating document tools:
-- Use documentEngine
-- Accept template + input data
-- Generate PDF/DOCX
-- Support Marathi + English text
-- Use dynamic placeholders
-
-Ensure export functionality is included.
+description: Create document tools using documentEngine with template-driven PDF/DOCX export, bilingual text support, and dynamic placeholders.
 ---
 
 # Documenttoolgenerator

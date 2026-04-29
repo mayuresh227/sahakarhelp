@@ -257,7 +257,7 @@ async function releaseReservation(reservationId, userId, toolSlug, ipAddress = n
 
 async function checkRequestIdProcessed(requestId) {
   try {
-    const log = await ToolExecutionLog.findOne({ requestId, status: 'success' });
+    const log = await ToolExecutionLog.findOne({ requestId, status: 'completed' });
     if (log) return true;
 
     const jobResult = await JobResult.findOne({ requestId, status: 'completed' });

@@ -105,14 +105,8 @@ async function getJobStatus(jobId) {
  * @returns {Promise<object>} Queue statistics
  */
 async function getQueueStats() {
-  const [waiting, active, completed, failed] = await Promise.all([
-    toolQueue.getWaitingCount(),
-    toolQueue.getActiveCount(),
-    toolQueue.getCompletedCount(),
-    toolQueue.getFailedCount(),
-  ]);
-
-  return { waiting, active, completed, failed };
+  const counts = await toolQueue.getJobCounts();
+  return { waiting: counts.waiting, active: counts.active, completed: counts.completed, failed: counts.failed };
 }
 
 /**

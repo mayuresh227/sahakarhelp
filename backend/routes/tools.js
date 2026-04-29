@@ -86,10 +86,19 @@ const withTimeout = async (promise, timeoutMs = QUERY_TIMEOUT_MS) => {
 const resolveTool = (toolKey) => {
   try {
     const { slug, version } = ToolRegistry.parseToolKey(toolKey);
-    
-    const tool = version
-      ? ToolRegistry.getTool(slug, version)
-      : ToolRegistry.getLatestVersion(slug);
+
+    if (!version) {
+      return {
+        tool: null,
+        error: {
+          code: 'VERSION_REQUIRED',
+          message: `Version required in toolKey: ${toolKey}`,
+          status: 400
+        }
+      };
+    }
+
+    const tool = ToolRegistry.getTool(slug, version);
 
     if (!tool) {
       return {
@@ -121,6 +130,7 @@ const resolveTool = (toolKey) => {
 const errorResponse = (res, code, message, status = 500, meta = {}) => {
   return res.status(status).json({
     success: false,
+    data: null,
     error: code,
     message,
     meta
@@ -182,18 +192,28 @@ router.get('/:toolKey', async (req, res) => {
 // GET /api/tools/:toolKey/versions - List all versions of a tool
 router.get('/:toolKey/versions', async (req, res) => {
   const { toolKey } = req.params;
-  
+
   try {
-    const { slug } = ToolRegistry.parseToolKey(toolKey);
+    const { slug, version } = ToolRegistry.parseToolKey(toolKey);
+
+    if (!version) {
+      return errorResponse(res, 'VERSION_REQUIRED', `Version required in toolKey: ${toolKey}`, 400);
+    }
+
+    const tool = ToolRegistry.getTool(slug, version);
+    if (!tool) {
+      return errorResponse(res, 'TOOL_NOT_FOUND', `Tool not found: ${toolKey}`, 404);
+    }
+
     const versions = ToolRegistry.getVersions(slug);
-    const latestVersion = ToolRegistry.getLatestVersion(slug)?.version;
 
     res.json({
       success: true,
       data: {
         slug,
+        version: tool.version,
         versions,
-        latestVersion
+        latestVersion: versions[versions.length - 1]
       }
     });
   } catch (err) {

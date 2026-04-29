@@ -36,18 +36,20 @@ app.set('trust proxy', 1);
 // ====================
 const MONGODB_URI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/sahakarhelp';
 
-mongoose.connect(MONGODB_URI, {
-  serverSelectionTimeoutMS: 10000, // Timeout after 10s if no MongoDB
-  socketTimeoutMS: 45000,
-  bufferTimeoutMS: 5000, // Timeout for buffered commands
-  bufferCommands: false, // Disable buffering to fail fast when not connected
-}).then(() => {
-  console.log('✅ MongoDB connected successfully');
-}).catch(err => {
-  console.error('❌ MongoDB connection error:', err.message);
-  // Do not crash the server; allow it to start but tools will fail
-  console.log('⚠️ Server will start without database connection. Some features may be unavailable.');
-});
+if (process.env.NODE_ENV !== 'test') {
+  mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 10000, // Timeout after 10s if no MongoDB
+    socketTimeoutMS: 45000,
+    bufferTimeoutMS: 5000, // Timeout for buffered commands
+    bufferCommands: false, // Disable buffering to fail fast when not connected
+  }).then(() => {
+    console.log('✅ MongoDB connected successfully');
+  }).catch(err => {
+    console.error('❌ MongoDB connection error:', err.message);
+    // Do not crash the server; allow it to start but tools will fail
+    console.log('⚠️ Server will start without database connection. Some features may be unavailable.');
+  });
+}
 
 // Set global mongoose settings
 mongoose.set('bufferTimeoutMS', 5000);
@@ -129,18 +131,21 @@ app.use((err, req, res, next) => {
 });
 
 // ====================
-// Start server
+// Start server (only if not in test mode)
 // ====================
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT} (bound to 0.0.0.0)`);
-});
+let server;
 
-// Graceful shutdown
-const gracefulShutdown = async (signal) => {
-  console.log(`\n${signal} received, shutting down gracefully...`);
-  server.close(() => {
-    console.log('HTTP server closed.');
-    mongoose.connection.close()
+if (process.env.NODE_ENV !== 'test') {
+  server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server running on port ${PORT} (bound to 0.0.0.0)`);
+  });
+
+  // Graceful shutdown
+  const gracefulShutdown = async (signal) => {
+    console.log(`\n${signal} received, shutting down gracefully...`);
+    server.close(() => {
+      console.log('HTTP server closed.');
+      mongoose.connection.close()
       .then(() => {
         console.log('MongoDB connection closed.');
         process.exit(0);
@@ -149,23 +154,27 @@ const gracefulShutdown = async (signal) => {
         console.error('Error closing MongoDB connection:', err);
         process.exit(1);
       });
+    });
+    setTimeout(() => {
+      console.error('Forcing shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   });
-  setTimeout(() => {
-    console.error('Forcing shutdown after timeout');
+
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
     process.exit(1);
-  }, 10000);
-};
+  });
+}
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  process.exit(1);
-});
+// Export app for testing
+module.exports = app;

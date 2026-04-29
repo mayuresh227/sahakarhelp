@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:7
+    container_name: sahakarhelp-mongo
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+  redis:
+    image: redis:7
+    container_name: sahakarhelp-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped

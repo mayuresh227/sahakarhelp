@@ -19,7 +19,10 @@ class EKYCAnalyticsService {
     this.activeJobs = new Map();
     this.slaWindow = [];
     this.slaWebhookUrl = process.env.SLA_WEBHOOK_URL || null;
-    this.startFlushTimer();
+    // Only start flush timer in non-test environment
+    if (process.env.NODE_ENV !== 'test') {
+      this.startFlushTimer();
+    }
   }
 
   startFlushTimer() {
