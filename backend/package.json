@@ -49,6 +49,7 @@
     "dotenv": "^16.4.7",
     "jest": "^30.3.0",
     "mongodb-memory-server": "^11.0.1",
+    "mongodb-memory-server-core": "^11.1.0",
     "nodemon": "^3.1.9",
     "supertest": "^7.2.2"
   },
