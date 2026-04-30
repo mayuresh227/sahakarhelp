@@ -38,7 +38,7 @@
     "mongoose": "^8.12.1",
     "multer": "^2.1.1",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^3.11.174",
+    "pdfjs-dist": "^5.7.284",
     "pdfkit": "^0.17.1",
     "razorpay": "^2.9.6",
     "sharp": "^0.34.5",
@@ -48,7 +48,7 @@
   "devDependencies": {
     "dotenv": "^16.4.7",
     "jest": "^30.3.0",
-    "mongodb-memory-server": "^11.0.1",
+    "mongodb-memory-server": "^11.1.0",
     "mongodb-memory-server-core": "^11.1.0",
     "nodemon": "^3.1.9",
     "supertest": "^7.2.2"

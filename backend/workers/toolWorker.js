@@ -5,16 +5,17 @@ const ExecutionLogger = require('../services/ExecutionLogger');
 const JobResult = require('../models/JobResult');
 const UsageService = require('../services/UsageService');
 
-// Redis connection config
-const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
-const REDIS_PORT = process.env.REDIS_PORT || 6379;
-const REDIS_PASSWORD = process.env.REDIS_PASSWORD || undefined;
-
-const connection = {
-  host: REDIS_HOST,
-  port: REDIS_PORT,
-  password: REDIS_PASSWORD,
-};
+// Redis connection config - support both URL and host/port
+let connection;
+if (process.env.REDIS_URL) {
+  connection = { url: process.env.REDIS_URL };
+} else {
+  connection = {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: Number(process.env.REDIS_PORT) || 6379,
+    password: process.env.REDIS_PASSWORD || undefined,
+  };
+}
 
 const QUEUE_NAME = 'tool-execution';
 
