@@ -23,8 +23,7 @@ console.log('========================================');
 console.log('[Worker] Starting Tool Execution Worker');
 console.log('[Worker] =======================================');
 console.log(`[Worker] NODE_ENV: ${process.env.NODE_ENV}`);
-console.log(`[Worker] Redis Host: ${process.env.REDIS_HOST || 'localhost'}`);
-console.log(`[Worker] Redis Port: ${process.env.REDIS_PORT || 6379}`);
+console.log(`[Worker] Redis URL: ${process.env.REDIS_URL ? 'configured' : 'NOT SET'}`);
 console.log('========================================');
 
 // Worker will auto-connect to Redis when started

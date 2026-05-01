@@ -33,9 +33,11 @@ SahakarHelp backend uses a dual-service architecture:
 {
   "status": "ok",
   "uptime": 12345.67,
-  "database": "connected"
+  "timestamp": "2024-01-01T00:00:00.000Z"
 }
 ```
+
+**Note:** Health check is independent of database connection - returns `ok` even if MongoDB is temporarily unavailable.
 
 ---
 
@@ -60,55 +62,85 @@ SahakarHelp backend uses a dual-service architecture:
 
 ---
 
-## Required Environment Variables
+## Standardized Environment Variables
 
-Configure these in **Railway dashboard** → Service → Variables.
+**IMPORTANT:** All services MUST use identical environment variables. No exceptions.
 
-### API Service (`sahakar-api`)
+### Required Variables (Both Services)
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NODE_ENV` | `production` | Yes |
-| `PORT` | Server port (default: 3001) | No |
-| `MONGODB_URI` | MongoDB connection string | Yes |
-| `REDIS_HOST` | Redis host | Yes |
-| `REDIS_PORT` | Redis port | No (default: 6379) |
-| `REDIS_PASSWORD` | Redis password | If auth enabled |
-| `JWT_SECRET` | Min 32 chars | Yes |
-| `SESSION_SECRET` | Min 32 chars | Yes |
-| `NEXTAUTH_SECRET` | Min 32 chars | Yes |
-| `NEXTAUTH_URL` | Public URL | Yes |
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NODE_ENV` | Environment mode | `production` |
+| `MONGO_URI` | MongoDB connection string | `mongodb+srv://user:pass@host/db` |
+| `REDIS_URL` | Redis connection URL | `redis://user:pass@host:port` |
 
-### Worker Service (`sahakar-worker`)
+### Required Variables (API Only)
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NODE_ENV` | `production` | Yes |
-| `REDIS_HOST` | Redis host | Yes |
-| `REDIS_PORT` | Redis port | No (default: 6379) |
-| `REDIS_PASSWORD` | Redis password | If auth enabled |
-| `MONGODB_URI` | MongoDB connection string | Yes |
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `JWT_SECRET` | JWT signing secret (min 32 chars) | `your-32-char-secret-here...` |
+| `SESSION_SECRET` | Session secret (min 32 chars) | `your-32-char-secret-here...` |
+| `NEXTAUTH_SECRET` | NextAuth secret (min 32 chars) | `your-32-char-secret-here...` |
+| `NEXTAUTH_URL` | Public API URL | `https://api.sahakarhelp.com` |
+| `FRONTEND_URL` | Public frontend URL | `https://sahakarhelp.com` |
+| `PORT` | Server port (optional, default: 3001) | `3001` |
+
+### Optional Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MAX_FILE_SIZE_MB` | Max upload size | `10` |
 
 ---
 
-## Important Notes
+## Environment Variable Reference
 
-### DO NOT Use .env Files
+### DO NOT USE (Deprecated)
 
-- Remove any `.env.production` references
-- All environment variables must be set via Railway dashboard
-- The `startWorker.js` script no longer loads `.env` files
+These variables are **no longer supported**:
+- `MONGODB_URI` → Use `MONGO_URI`
+- `REDIS_HOST` → Use `REDIS_URL`
+- `REDIS_PORT` → Use `REDIS_URL`
+- `REDIS_PASSWORD` → Use `REDIS_URL` (include in URL)
 
-### Startup Validation
+### REDIS_URL Format
+
+```
+redis://user:password@host:port
+rediss://user:password@host:port  (TLS)
+```
+
+Example:
+```
+redis://default:abc123@redis.railway.app:6379
+```
+
+### MONGO_URI Format
+
+```
+mongodb+srv://user:password@host/db
+mongodb://user:password@host:port/db
+```
+
+---
+
+## Startup Validation
 
 The API server validates on startup:
-- `NODE_ENV` must be defined
-- `JWT_SECRET`, `SESSION_SECRET`, `NEXTAUTH_SECRET` must be ≥32 characters in production
-- Placeholder values (containing "placeholder", "changeme", etc.) are rejected
 
-### Startup Logs
+1. `NODE_ENV` must be defined
+2. `MONGO_URI` must be set
+3. `REDIS_URL` must be set (no fallback)
+4. `JWT_SECRET`, `SESSION_SECRET`, `NEXTAUTH_SECRET` must be ≥32 characters in production
+5. Placeholder values (containing "placeholder", "changeme", etc.) are rejected
 
-API Service logs on successful start:
+If validation fails, the server exits with a clear error message.
+
+---
+
+## Startup Logs
+
+### API Service (on success)
 ```
 [Server] =======================================
 [Server] Production mode: ENFORCED
@@ -121,14 +153,13 @@ API Service logs on successful start:
 [Server] =======================================
 ```
 
-Worker Service logs on successful start:
+### Worker Service (on success)
 ```
 ========================================
 [Worker] Starting Tool Execution Worker
 [Worker] =======================================
 [Worker] NODE_ENV: production
-[Worker] Redis Host: your-redis-host
-[Worker] Redis Port: 6379
+[Worker] Redis URL: configured
 ========================================
 [Worker] Initializing worker...
 [Worker] Worker is ready and waiting for jobs
@@ -143,18 +174,19 @@ Worker Service logs on successful start:
 
 1. Check logs for startup errors
 2. Verify `NODE_ENV=production` is set
-3. Verify MongoDB URI is correct
-4. Verify all required secrets are ≥32 characters
+3. Verify `MONGO_URI` is correct
+4. Verify `REDIS_URL` is correct format
+5. Verify all required secrets are ≥32 characters
 
 ### Worker Not Processing Jobs
 
-1. Verify Redis connection in logs
+1. Verify Redis URL in logs shows "configured"
 2. Check worker service is running
-3. Verify `REDIS_HOST` matches API service
+3. Verify `REDIS_URL` matches API service
 
 ### MongoDB Connection Issues
 
-1. Verify `MONGODB_URI` format: `mongodb+srv://user:pass@host/db`
+1. Verify `MONGO_URI` format: `mongodb+srv://user:pass@host/db`
 2. Check IP whitelist in MongoDB Atlas
 3. Verify database user credentials
 
@@ -167,4 +199,5 @@ Worker Service logs on successful start:
 - [ ] Health check returns `{"status": "ok"}`
 - [ ] MongoDB connects (check logs)
 - [ ] Redis connects (check logs)
-- [ ] No `.env` files are used in production
+- [ ] No deprecated env vars used (MONGODB_URI, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD)
+- [ ] Both services use identical MONGO_URI and REDIS_URL

@@ -69,23 +69,20 @@ if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
   }
 }
 
-// Redis config resolver - compatible with BullMQ
+// Redis config resolver - ONLY use REDIS_URL
 function buildRedisConnection() {
-  if (process.env.REDIS_URL) {
-    try {
-      const redisUrl = new URL(process.env.REDIS_URL);
-      if (!['redis:', 'rediss:'].includes(redisUrl.protocol)) {
-        throw new Error(`Invalid protocol: ${redisUrl.protocol}`);
-      }
-      return { url: process.env.REDIS_URL };
-    } catch (e) {
-      throw new Error(`Invalid REDIS_URL: ${process.env.REDIS_URL}. Error: ${e.message}`);
-    }
+  if (!process.env.REDIS_URL) {
+    throw new Error('REDIS_URL is required. Format: redis://user:pass@host:port');
   }
-  return {
-    host: process.env.REDIS_HOST || '127.0.0.1',
-    port: Number(process.env.REDIS_PORT) || 6379
-  };
+  try {
+    const redisUrl = new URL(process.env.REDIS_URL);
+    if (!['redis:', 'rediss:'].includes(redisUrl.protocol)) {
+      throw new Error(`Invalid protocol: ${redisUrl.protocol}`);
+    }
+    return { url: process.env.REDIS_URL };
+  } catch (e) {
+    throw new Error(`Invalid REDIS_URL: ${process.env.REDIS_URL}. Error: ${e.message}`);
+  }
 }
 
 const redisConnection = buildRedisConnection();
@@ -111,13 +108,9 @@ function validateEnvironment() {
     errors.push('MONGO_URI is required');
   }
 
-  // Redis - either URL or HOST+PORT
-  const hasRedisUrl = !!process.env.REDIS_URL;
-  const hasRedisHost = !!process.env.REDIS_HOST;
-  const hasRedisPort = !!process.env.REDIS_PORT;
-
-  if (!hasRedisUrl && !(hasRedisHost && hasRedisPort)) {
-    errors.push('Either REDIS_URL or both REDIS_HOST and REDIS_PORT are required');
+  // Redis - ONLY REDIS_URL
+  if (!process.env.REDIS_URL) {
+    errors.push('REDIS_URL is required. Format: redis://user:pass@host:port');
   }
 
   // Frontend URL
@@ -216,11 +209,12 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-  res.json({ 
-    status: 'ok', 
+  // Health check is independent of database connection
+  // Returns ok even if MongoDB is temporarily unavailable
+  res.json({
+    status: 'ok',
     uptime: process.uptime(),
-    database: dbStatus
+    timestamp: new Date().toISOString()
   });
 });
 
