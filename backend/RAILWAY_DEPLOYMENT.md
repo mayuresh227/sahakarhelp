@@ -1,175 +1,170 @@
-# Railway Deployment Guide for SahakarHelp Backend
+# Railway Deployment Guide
 
-This guide ensures successful deployment of the backend on Railway.
+## Overview
 
-## Prerequisites
+SahakarHelp backend uses a dual-service architecture:
+- **API Service**: Express server handling HTTP requests
+- **Worker Service**: BullMQ worker processing background jobs
 
-1. Railway account (https://railway.app)
-2. GitHub repository connected
-3. MongoDB database (MongoDB Atlas recommended)
+---
 
-## Step 1: Project Setup on Railway
+## Service 1: API Service (sahakar-api)
 
-1. **Create New Project**
-   - Go to [Railway Dashboard](https://railway.app)
-   - Click "New Project"
-   - Select "Deploy from GitHub repo"
-   - Choose your repository
-
-2. **Configure the backend service**
-   - Use one Railway service for the API.
-   - Set **Root Directory** to `/backend`.
-   - Set **Config File Path** to `/backend/railway.json`.
-   - (Optional) If using Dockerfile (recommended), no build command is needed; Railway will detect the Dockerfile automatically.
-   - Set **Start Command** to `npm start`.
-   - Leave `PORT` unset unless you intentionally configure a matching public domain target port.
-
-## Step 2: Environment Variables
-
-Add these environment variables in Railway Dashboard → Project → Variables:
-
-| Variable | Value | Required |
-|----------|-------|----------|
-| `PORT` | Leave unset | No. Railway injects this automatically |
-| `MONGODB_URI` | Your MongoDB connection string | **Yes** |
-| `NODE_ENV` | `production` | Recommended |
-| `FRONTEND_URL` | Your frontend URL (e.g., `https://sahakarhelp.vercel.app`) | Recommended |
-| `NEXTAUTH_SECRET` | Random 32+ character string | For auth |
-| `JWT_SECRET` | Random secret string | For JWT |
-
-### MongoDB URI Format
-- For MongoDB Atlas: `mongodb+srv://username:password@cluster.mongodb.net/sahakarhelp?retryWrites=true&w=majority`
-- Railway also offers MongoDB plugin (recommended)
-
-## Step 3: Deployment Configuration
-
-### Railway Configuration File
-The backend service uses `backend/railway.json`. The configuration uses Dockerfile for building (ensuring native dependencies like libvips are installed):
+### Configuration
 
 ```json
 {
   "deploy": {
-    "startCommand": "npm start",
+    "startCommand": "NODE_ENV=production node server.js",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 30,
+    "healthcheckInterval": 30,
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 3
+    "restartPolicyMaxRetries": 3,
+    "zeroDowntime": true
   }
 }
 ```
 
-If you want to use Nixpacks instead, you can add a `build` section with `"builder": "NIXPACKS"`. However, Dockerfile is recommended for native modules.
+### Health Check Endpoint
 
-### Important Settings
-- **Public Networking**: In the backend service settings, generate a Railway domain under **Networking → Public Networking**.
-- **Target Port**: Leave the domain target port automatic, or set it to the same value as the service `PORT`.
-- **Port Binding**: The server must listen on `0.0.0.0` and `process.env.PORT`; `server.js` already does this.
-- **Root Directory**: Must be `/backend`, not the project root.
-- **Config File Path**: Must be `/backend/railway.json`; Railway config files do not automatically follow the root directory setting.
+`GET /api/health` returns:
+```json
+{
+  "status": "ok",
+  "uptime": 12345.67,
+  "database": "connected"
+}
+```
 
-## Step 4: Deploy
+---
 
-1. **Trigger Deployment**
-   - Railway auto-deploys on git push to main branch
-   - Or manually deploy from dashboard
+## Service 2: Worker Service (sahakar-worker)
 
-2. **Monitor Logs**
-   - Check deployment logs for errors
-   - Look for "Server running on port" message
-   - Verify MongoDB connection success
+### Configuration
 
-## Step 5: Verify Deployment
+| Setting | Value |
+|---------|-------|
+| Service Name | `sahakar-worker` |
+| Start Command | `NODE_ENV=production node startWorker.js` |
+| Health Check | Not required (background service) |
 
-1. **Test Endpoints**
-   - `GET /` - Should return "Backend is running 🚀"
-   - `GET /api/test` - Should return JSON `{ message: "API working 🚀" }`
+### Deployment Steps
 
-2. **Check Health**
-   - Railway dashboard shows service status
-   - Green = healthy, Red = failed
+1. In Railway dashboard, click **Add New Service**
+2. Select **Empty Service**
+3. Name it `sahakar-worker`
+4. Under **Settings** → **Deploy**, set:
+   - **Start Command**: `NODE_ENV=production node startWorker.js`
+5. Add required environment variables (see below)
+
+---
+
+## Required Environment Variables
+
+Configure these in **Railway dashboard** → Service → Variables.
+
+### API Service (`sahakar-api`)
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `NODE_ENV` | `production` | Yes |
+| `PORT` | Server port (default: 3001) | No |
+| `MONGODB_URI` | MongoDB connection string | Yes |
+| `REDIS_HOST` | Redis host | Yes |
+| `REDIS_PORT` | Redis port | No (default: 6379) |
+| `REDIS_PASSWORD` | Redis password | If auth enabled |
+| `JWT_SECRET` | Min 32 chars | Yes |
+| `SESSION_SECRET` | Min 32 chars | Yes |
+| `NEXTAUTH_SECRET` | Min 32 chars | Yes |
+| `NEXTAUTH_URL` | Public URL | Yes |
+
+### Worker Service (`sahakar-worker`)
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `NODE_ENV` | `production` | Yes |
+| `REDIS_HOST` | Redis host | Yes |
+| `REDIS_PORT` | Redis port | No (default: 6379) |
+| `REDIS_PASSWORD` | Redis password | If auth enabled |
+| `MONGODB_URI` | MongoDB connection string | Yes |
+
+---
+
+## Important Notes
+
+### DO NOT Use .env Files
+
+- Remove any `.env.production` references
+- All environment variables must be set via Railway dashboard
+- The `startWorker.js` script no longer loads `.env` files
+
+### Startup Validation
+
+The API server validates on startup:
+- `NODE_ENV` must be defined
+- `JWT_SECRET`, `SESSION_SECRET`, `NEXTAUTH_SECRET` must be ≥32 characters in production
+- Placeholder values (containing "placeholder", "changeme", etc.) are rejected
+
+### Startup Logs
+
+API Service logs on successful start:
+```
+[Server] =======================================
+[Server] Production mode: ENFORCED
+[Server] Environment: production
+[Server] Server running on port 3001
+[Server] MongoDB: connected
+[Server] Redis: connected
+[Server] Tool Registry initialized
+[Server] API ready at http://localhost:3001
+[Server] =======================================
+```
+
+Worker Service logs on successful start:
+```
+========================================
+[Worker] Starting Tool Execution Worker
+[Worker] =======================================
+[Worker] NODE_ENV: production
+[Worker] Redis Host: your-redis-host
+[Worker] Redis Port: 6379
+========================================
+[Worker] Initializing worker...
+[Worker] Worker is ready and waiting for jobs
+[Worker] =======================================
+```
+
+---
 
 ## Troubleshooting
 
-### Common Issues
+### Health Check Fails
 
-1. **Railpack Error**
-   - Ensure `package.json` has correct `main` field (`server.js`)
-   - Ensure `start` script exists (`node server.js`)
-   - Check Node version compatibility (18.x)
+1. Check logs for startup errors
+2. Verify `NODE_ENV=production` is set
+3. Verify MongoDB URI is correct
+4. Verify all required secrets are ≥32 characters
 
-2. **MongoDB Connection Failed**
-   - Verify `MONGODB_URI` is set correctly
-   - Check network access (allow all IPs in MongoDB Atlas)
-   - Test connection locally with same URI
+### Worker Not Processing Jobs
 
-3. **Port Binding / Target Port Error**
-   - Server must use `process.env.PORT` and bind to `0.0.0.0`.
-   - Do not hard-code `PORT=3001` or `PORT=8080` in Railway variables unless the public domain target port is set to the exact same value.
-   - If `/api/test` returns Railway's 502 JSON and the backend logs do not show `TEST HIT`, the request is not reaching this service.
+1. Verify Redis connection in logs
+2. Check worker service is running
+3. Verify `REDIS_HOST` matches API service
 
-4. **Root Directory Wrong**
-   - Railway might deploy from `/` instead of `/backend`
-   - Manually set root directory to `/backend` in service settings
-   - Set config file path to `/backend/railway.json`
+### MongoDB Connection Issues
 
-5. **Duplicate Services**
-   - Delete or detach domains from stale/root services
-   - Keep only one public domain on the backend API service
-   - Ensure the frontend `NEXT_PUBLIC_API_URL` points to that backend domain
+1. Verify `MONGODB_URI` format: `mongodb+srv://user:pass@host/db`
+2. Check IP whitelist in MongoDB Atlas
+3. Verify database user credentials
 
-### Debug Logs
-Our server.js includes debug logs:
-- Server starting message
-- PORT value
-- MongoDB URI existence check
-- NODE_ENV value
+---
 
-Check Railway logs for these messages.
+## Validation Checklist
 
-### Sharp Native Module Support
-Sharp is used for image processing. To ensure it loads correctly in Railway:
-
-1. **Libvips Dependency**: The Dockerfile includes `libvips` runtime dependency. If using Nixpacks (default), ensure libvips is installed by adding `apt-get install libvips` in a custom build command.
-
-2. **Postinstall Rebuild**: The package.json includes a `postinstall` script that runs `npm run sharp:verify`. This verifies sharp loads correctly. If sharp fails, the build will fail.
-
-3. **Verification**:
-   - After deployment, run `npm run sharp:verify` in the backend service shell.
-   - Check logs for "Sharp version:" message.
-   - Test the image tools endpoint (e.g., `/api/tools/image-compressor`) with a sample image.
-
-4. **Troubleshooting**:
-   - If sharp fails with "libvips" error, ensure the system has libvips installed (use Dockerfile).
-   - If sharp fails due to missing native module, run `npm rebuild sharp` manually.
-   - Ensure Node.js version matches sharp's prebuilt binaries (Node 18+).
-
-## Production Recommendations
-
-1. **Enable Auto-Deploy** from main branch
-2. **Set up Custom Domain** in Railway
-3. **Use Railway's MongoDB** plugin for easier management
-4. **Configure Monitoring** with Railway insights
-5. **Set up Backups** for MongoDB
-
-## Connecting Frontend
-
-Update frontend environment variable:
-```env
-NEXT_PUBLIC_API_URL=https://your-railway-app.up.railway.app
-```
-
-## Support
-
-If issues persist:
-1. Check Railway documentation: https://docs.railway.app
-2. Examine deployment logs in Railway dashboard
-3. Verify all environment variables are set
-4. Test locally with same configuration
-
-## Success Indicators
-
-- ✅ Build completes without errors
-- ✅ Server starts on assigned port
-- ✅ MongoDB connects successfully
-- ✅ `/api/test` endpoint returns 200 OK
-- ✅ Railway dashboard shows "Healthy" status
+- [ ] API service starts successfully
+- [ ] Worker service starts successfully
+- [ ] Health check returns `{"status": "ok"}`
+- [ ] MongoDB connects (check logs)
+- [ ] Redis connects (check logs)
+- [ ] No `.env` files are used in production

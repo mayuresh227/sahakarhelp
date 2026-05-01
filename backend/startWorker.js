@@ -1,17 +1,36 @@
 /**
- * Worker startup script
- * Run with: node startWorker.js
+ * Worker startup script for Railway deployment
+ * Run with: NODE_ENV=production node startWorker.js
  * 
  * This starts the BullMQ worker that processes queued tool executions.
- * The worker will automatically connect to Redis and start processing jobs.
+ * The worker connects to Redis and processes jobs from the queue.
+ * 
+ * IMPORTANT: Do NOT use dotenv - rely on Railway environment variables
  */
 
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+// Remove any dotenv loading - Railway provides env vars directly
+// require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const { worker } = require('./workers/toolWorker');
 
-console.log('[Startup] Starting Tool Execution Worker...');
-console.log(`[Startup] Redis: ${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`);
-console.log('[Startup] Worker is ready and waiting for jobs');
+// Validate required environment
+if (!process.env.NODE_ENV) {
+  console.error('[Worker] FATAL: NODE_ENV is not defined');
+  process.exit(1);
+}
+
+console.log('========================================');
+console.log('[Worker] Starting Tool Execution Worker');
+console.log('[Worker] =======================================');
+console.log(`[Worker] NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`[Worker] Redis Host: ${process.env.REDIS_HOST || 'localhost'}`);
+console.log(`[Worker] Redis Port: ${process.env.REDIS_PORT || 6379}`);
+console.log('========================================');
+
+// Worker will auto-connect to Redis when started
+// The BullMQ worker handles connection lifecycle
+console.log('[Worker] Initializing worker...');
+console.log('[Worker] Worker is ready and waiting for jobs');
+console.log('[Worker] =======================================');
 
 module.exports = { worker };
