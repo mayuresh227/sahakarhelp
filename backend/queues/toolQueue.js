@@ -33,15 +33,9 @@ const toolQueue = new Queue(QUEUE_NAME, {
       type: 'exponential',
       delay: 2000,
     },
-    timeout: 30000, // 30 second timeout per job
-    removeOnComplete: {
-      count: 100,
-      age: 24 * 3600,
-    },
-    removeOnFail: {
-      count: 500,
-      age: 7 * 24 * 3600,
-    },
+    timeout: 30000,
+    removeOnComplete: true,
+    removeOnFail: true,
   },
 });
 
