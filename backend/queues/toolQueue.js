@@ -1,12 +1,25 @@
 const { Queue } = require('bullmq');
 const mongoose = require('mongoose');
 
-// Redis connection config - ONLY use REDIS_URL
-let connection;
-if (!process.env.REDIS_URL) {
-  throw new Error('REDIS_URL is required. Format: redis://user:pass@host:port');
+// Redis connection resolver - REDIS_URL with fallback to HOST/PORT
+function buildRedisConnection() {
+  if (process.env.REDIS_URL) {
+    const url = process.env.REDIS_URL;
+    if (!url.startsWith('redis://') && !url.startsWith('rediss://')) {
+      throw new Error('REDIS_URL must use redis:// or rediss:// protocol');
+    }
+    return { url };
+  }
+  if (!process.env.REDIS_HOST || !process.env.REDIS_PORT) {
+    throw new Error('Either REDIS_URL or both REDIS_HOST and REDIS_PORT are required');
+  }
+  return {
+    host: process.env.REDIS_HOST,
+    port: Number(process.env.REDIS_PORT)
+  };
 }
-connection = { url: process.env.REDIS_URL };
+
+const connection = buildRedisConnection();
 
 // Queue name
 const QUEUE_NAME = 'tool-execution';
